@@ -1,0 +1,35 @@
+{
+  "default": {
+    "who": "default",
+    "version": "1.0",
+
+    "types": {
+      "num": 42,
+      "string": "asdf",
+      "bool": false,
+      "bool2": true,
+      "float": 42.5,
+      "null": null,
+      "map": {
+        "key1": "value1",
+        "key2": "value2",
+        "key3": {
+          "key4": "value4",
+          "key5": "value5"
+        }
+      },
+      "array": [1,2.5,"3a",false,null],
+      "123": "234"
+    }
+  },
+
+  "127.0.0.1": {
+    "who": "127.0.0.1",
+    "version": "1.1"
+  },
+
+  "::1": {
+    "who": "::1",
+    "version": "1.2"
+  }
+}
