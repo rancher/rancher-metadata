@@ -8,7 +8,7 @@ A simple HTTP server that returns EC2-style introspective information that varie
 
 # Usage
 ```bash
-  rancher-metadata [--debug] [--listen host:port] [--log path] [--pid-file path]--answers /path/to/answers.json
+  rancher-metadata [--debug] [--listen host:port] [--log path] [--pid-file path] --answers /path/to/answers.json
 ```
 
 # Compile
