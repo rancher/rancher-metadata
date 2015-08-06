@@ -27,12 +27,13 @@ const (
 
 var (
 	debug       = flag.Bool("debug", false, "Debug")
-	listen      = flag.String("listen", ":53", "Address to listen to (TCP and UDP)")
+	listen      = flag.String("listen", ":80", "Address to listen to (TCP)")
 	answersFile = flag.String("answers", "./answers.json", "File containing the answers to respond with")
 	logFile     = flag.String("log", "", "Log file")
 	pidFile     = flag.String("pid-file", "", "PID to write to")
 
-	versions = []string{"latest", "2015-07-31"}
+	versions = []string{"latest", "2015-07-25"}
+	router   = mux.NewRouter()
 	answers  Answers
 )
 
@@ -45,13 +46,19 @@ func main() {
 	}
 	watchSignals()
 
-	router := mux.NewRouter()
 	router.HandleFunc("/favicon.ico", http.NotFound)
-	router.HandleFunc("/", root).Methods("GET", "HEAD")
+	router.HandleFunc("/", root).
+		Methods("GET", "HEAD").
+		Name("Root")
 
 	for _, version := range versions {
-		router.HandleFunc("/{version:"+version+"}", metadata).Methods("GET")
-		router.HandleFunc("/{version:"+version+"}/{key:.*}", metadata).Methods("GET")
+		router.HandleFunc("/{version:"+version+"}", metadata).
+			Methods("GET", "HEAD").
+			Name("Version:" + version)
+
+		router.HandleFunc("/{version:"+version+"}/{key:.*}", metadata).
+			Methods("GET", "HEAD").
+			Name("Metadata")
 	}
 
 	log.Info("Listening on ", *listen)
@@ -138,9 +145,19 @@ func contentType(req *http.Request) int {
 }
 
 func root(w http.ResponseWriter, req *http.Request) {
+	clientIp, _, _ := net.SplitHostPort(req.RemoteAddr)
+
+	log.WithFields(log.Fields{"client": clientIp, "version": "root"}).Infof("OK: %s", "/")
+	m := make(map[string]interface{})
 	for _, version := range versions {
-		fmt.Fprintf(w, "%s\n", version)
+		url, err := router.Get("Version:"+version).URL("version", version)
+		if err == nil {
+			m[version] = (*url).String()
+		} else {
+			log.Warn("Error: ", err.Error())
+		}
 	}
+	respondSuccess(w, req, m)
 }
 
 func metadata(w http.ResponseWriter, req *http.Request) {
