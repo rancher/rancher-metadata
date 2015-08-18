@@ -44,16 +44,24 @@ func valueForPath(in *interface{}, path string) (interface{}, bool) {
 		switch v := out.(type) {
 		case []interface{}:
 			idx, err := strconv.ParseInt(key, 10, 64)
-			if err != nil {
-				return nil, false
+			if err == nil {
+				// Is the part is a number, treat it like an array index
+				if idx >= 0 && idx < int64(len(v)) {
+					out = v[idx]
+					valid = true
+				}
+			} else {
+				// Otherwise maybe it's the name of a child map
+				vAry, _ := out.([]interface{})
+				for childK, childV := range vAry {
+					childMap, ok := childV.(map[string]interface{})
+					if ok && childMap[MAGIC_ARRAY_KEY] == key {
+						out = vAry[childK]
+						valid = true
+						break
+					}
+				}
 			}
-
-			if idx < 0 || idx >= int64(len(v)) {
-				return nil, false
-			}
-
-			out = v[idx]
-			valid = true
 
 		case map[string]interface{}:
 			out, valid = v[key]
