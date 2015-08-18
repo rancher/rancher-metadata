@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"strconv"
 	"syscall"
 
@@ -23,6 +24,11 @@ const (
 
 	// The top-level key in the JSON for the default (not client-specific answers)
 	DEFAULT_KEY = "default"
+
+	// A key to check for magic traversing of arrays by a string field in them
+	// For example, given: { things: [ {name: 'asdf', stuff: 42}, {name: 'zxcv', stuff: 43} ] }
+	// Both ../things/0/stuff and ../things/asdf/stuff will return 42 because 'asdf' matched the 'anme' field of one of the 'things'.
+	MAGIC_ARRAY_KEY = "name"
 )
 
 var (
@@ -56,7 +62,15 @@ func main() {
 			Methods("GET", "HEAD").
 			Name("Version:" + version)
 
+		router.HandleFunc("/{version:"+version+"}/", metadata).
+			Methods("GET", "HEAD").
+			Name("Version:" + version)
+
 		router.HandleFunc("/{version:"+version+"}/{key:.*}", metadata).
+			Methods("GET", "HEAD").
+			Name("Metadata")
+
+		router.HandleFunc("/{version:"+version+"}/{key:.*}/", metadata).
 			Methods("GET", "HEAD").
 			Name("Metadata")
 	}
@@ -225,22 +239,42 @@ func respondText(w http.ResponseWriter, req *http.Request, val interface{}) {
 			fmt.Fprint(w, "false")
 		}
 	case map[string]interface{}:
+		out := make([]string, len(v))
+		i := 0
 		for k, vv := range v {
 			_, isMap := vv.(map[string]interface{})
 			_, isArray := vv.([]interface{})
 			if isMap || isArray {
-				fmt.Fprintf(w, "%s/\n", k)
+				out[i] = fmt.Sprintf("%s/\n", k)
 			} else {
-				fmt.Fprintf(w, "%s\n", k)
+				out[i] = fmt.Sprintf("%s\n", k)
 			}
+			i++
+		}
+
+		sort.Strings(out)
+		for _, vv := range out {
+			fmt.Fprint(w, vv)
 		}
 	case []interface{}:
 		for k, vv := range v {
-			_, isMap := vv.(map[string]interface{})
+			vvMap, isMap := vv.(map[string]interface{})
 			_, isArray := vv.([]interface{})
+
+			if isMap {
+				// If the child is a map and has a "name" property, show "key=name"
+				name, ok := vvMap[MAGIC_ARRAY_KEY]
+				if ok {
+					fmt.Fprintf(w, "%d=%s\n", k, name)
+					continue
+				}
+			}
+
 			if isMap || isArray {
+				// If the child is a map or array, show "key/"
 				fmt.Fprintf(w, "%d/\n", k)
 			} else {
+				// Otherwise, show "key"
 				fmt.Fprintf(w, "%d\n", k)
 			}
 		}
