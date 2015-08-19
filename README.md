@@ -4,7 +4,7 @@ rancher-metadata
 [![Build Status](http://drone.rancher.io/api/badge/github.com/rancher/rancher-metadata/status.svg?branch=master)](http://drone.rancher.io/github.com/rancherio/rancher-metadata)
 
 
-A simple HTTP server that returns EC2-style introspective information that varies depending on the IP address making the request.
+A simple HTTP server that returns EC2-style metadata information that varies depending on the source IP address making the request.  This package contains no Rancher-specific code, but is used in Rancher with an answer file that provide the requesting container information about itself, the service and stack it is a member of, the host it is running on, etc.
 
 # Usage
 ```bash
