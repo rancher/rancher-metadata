@@ -9,6 +9,8 @@
       "bool": false,
       "bool2": true,
       "float": 42.5,
+      "bignum": 1073741824,
+      "bigfloat": 1073741824.7,
       "null": null,
       "map": {
         "key1": "value1",

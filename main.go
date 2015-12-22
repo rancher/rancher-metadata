@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"sort"
 	"strconv"
+	"strings"
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
@@ -230,8 +231,10 @@ func respondText(w http.ResponseWriter, req *http.Request, val interface{}) {
 		fmt.Fprint(w, v)
 	case uint, uint8, uint16, uint32, uint64, int, int8, int16, int32, int64:
 		fmt.Fprintf(w, "%d", v)
-	case float32, float64, complex64, complex128:
-		fmt.Fprintf(w, "%g", v)
+	case float64:
+		// The default format has extra trailing zeros
+		str := strings.TrimRight(fmt.Sprintf("%f", v), ".0")
+		fmt.Fprint(w, str)
 	case bool:
 		if v {
 			fmt.Fprint(w, "true")
