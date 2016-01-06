@@ -1,0 +1,51 @@
+{
+  "2015-07-25": {
+    "default": {
+      "arbitrarily": {
+        "nested": [
+          "YAML",
+          "of",
+          "any",
+          "type",
+          42,
+          null,
+          false
+        ]
+      },
+      "key1": "value1"
+    },
+
+    "192.168.0.2": {
+      "key1": "value2"
+    },
+
+    "10.1.2.2": {
+      "key1": "value3"
+    }
+  },
+
+  "2015-12-19": {
+    "default": {
+      "arbitrarily": {
+        "nested": [
+          "YAML",
+          "of",
+          "any",
+          "type",
+          42,
+          null,
+          false
+        ]
+      },
+      "key1": "value1"
+    },
+
+    "192.168.0.2": {
+      "key1": "value2"
+    },
+
+    "10.1.2.2": {
+      "key1": "value3"
+    }
+  },
+}
