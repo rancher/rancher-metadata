@@ -1,14 +1,15 @@
 package main
 
 import (
-	"encoding/json"
+	"github.com/ghodss/yaml"
+
 	"io/ioutil"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
 )
 
-func ParseAnswers(path string) (out Answers, err error) {
+func ParseAnswers(path string) (out Versions, err error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -17,7 +18,8 @@ func ParseAnswers(path string) (out Answers, err error) {
 		return nil, err
 	}
 
-	out = make(Answers)
-	err = json.Unmarshal(data, &out)
-	return out, err
+	var tmp Versions
+	err = yaml.Unmarshal(data, &tmp)
+
+	return tmp, err
 }

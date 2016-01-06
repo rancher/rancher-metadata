@@ -1,37 +1,678 @@
 {
-  "default": {
-    "who": "default",
-    "version": "1.0",
-
-    "types": {
-      "num": 42,
-      "string": "asdf",
-      "bool": false,
-      "bool2": true,
-      "float": 42.5,
-      "bignum": 1073741824,
-      "bigfloat": 1073741824.7,
-      "null": null,
-      "map": {
-        "key1": "value1",
-        "key2": "value2",
-        "key3": {
-          "key4": "value4",
-          "key5": "value5"
+  "2015-07-25": {
+    "default": {
+      "host": null, 
+      "version": "20-aff454dabf2760385d247a5955488ff375b8230edefe079d3748ab44426edd9f", 
+      "hosts": [
+        {
+          "agent_ip": "127.0.0.1", 
+          "labels": {
+            "io.rancher.host.linux_kernel_version": "4.1", 
+            "io.rancher.host.docker_version": "1.9"
+          }, 
+          "name": "default", 
+          "hostId": 1, 
+          "uuid": "515ef0f5-9826-4b07-b041-db0785098661"
         }
-      },
-      "array": [1,2.5,"3a",false,null,"things",{"k1":"v1","k2":"v2"},[1,2,3]],
-      "123": "234"
+      ], 
+      "services": [
+        {
+          "links": {}, 
+          "stack_name": "Default", 
+          "expose": [], 
+          "labels": {
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "vip": "169.254.94.238", 
+          "sidekicks": [], 
+          "external_ips": [], 
+          "uuid": "695036a7-b9fa-4024-87c9-20eb4d534459", 
+          "create_index": 1, 
+          "kind": "service", 
+          "scale": 1, 
+          "name": "alena", 
+          "hostname": null, 
+          "fqdn": null, 
+          "ports": [], 
+          "containers": [
+            {
+              "create_index": 1, 
+              "hostname": "default", 
+              "primary_ip": "10.42.75.49", 
+              "name": "Default_alena_1", 
+              "stack_name": "Default", 
+              "service_name": "alena", 
+              "start_count": 7, 
+              "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+              "labels": {
+                "io.rancher.project_service.name": "Default/alena", 
+                "io.rancher.project.name": "Default", 
+                "io.rancher.service.deployment.unit": "38d01516-d784-4fe6-84ef-e25935d376cd", 
+                "io.rancher.stack_service.name": "Default/alena", 
+                "io.rancher.scheduler.affinity:container_label_soft": "io.rancher.service.deployment.unit=38d01516-d784-4fe6-84ef-e25935d376cd", 
+                "io.rancher.stack.name": "Default", 
+                "io.rancher.service.launch.config": "io.rancher.service.primary.launch.config", 
+                "io.rancher.container.pull_image": "always"
+              }, 
+              "ips": [
+                "10.42.75.49"
+              ], 
+              "health_state": null, 
+              "ports": [], 
+              "uuid": "57ad0af4-01a9-44cb-862c-0e2ed80c6bdb"
+            }
+          ], 
+          "metadata": {}
+        }
+      ], 
+      "stacks": [
+        {
+          "services": [
+            {
+              "links": {}, 
+              "stack_name": "Default", 
+              "expose": [], 
+              "labels": {
+                "io.rancher.container.pull_image": "always"
+              }, 
+              "vip": "169.254.94.238", 
+              "sidekicks": [], 
+              "external_ips": [], 
+              "uuid": "695036a7-b9fa-4024-87c9-20eb4d534459", 
+              "create_index": 1, 
+              "kind": "service", 
+              "scale": 1, 
+              "name": "alena", 
+              "hostname": null, 
+              "fqdn": null, 
+              "ports": [], 
+              "metadata": {}
+            }
+          ], 
+          "environment_name": "Default", 
+          "name": "Default", 
+          "uuid": "c1f29ebd-e5b9-4781-9c69-9a063a92b1fa"
+        }
+      ], 
+      "containers": [
+        {
+          "create_index": 1, 
+          "hostname": "default", 
+          "primary_ip": "10.42.75.49", 
+          "name": "Default_alena_1", 
+          "stack_name": "Default", 
+          "service_name": "alena", 
+          "start_count": 7, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {
+            "io.rancher.project_service.name": "Default/alena", 
+            "io.rancher.project.name": "Default", 
+            "io.rancher.service.deployment.unit": "38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack_service.name": "Default/alena", 
+            "io.rancher.scheduler.affinity:container_label_soft": "io.rancher.service.deployment.unit=38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack.name": "Default", 
+            "io.rancher.service.launch.config": "io.rancher.service.primary.launch.config", 
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "ips": [
+            "10.42.75.49"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "57ad0af4-01a9-44cb-862c-0e2ed80c6bdb"
+        }, 
+        {
+          "create_index": null, 
+          "hostname": "default", 
+          "primary_ip": "10.42.185.183", 
+          "name": "Network Agent", 
+          "stack_name": null, 
+          "service_name": null, 
+          "start_count": 1, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {}, 
+          "ips": [
+            "10.42.185.183"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "0eed53a0-a3d0-41d7-8c06-05c9065a615d"
+        }
+      ]
+    }, 
+    "10.42.185.183": {
+      "self": {
+        "host": {
+          "agent_ip": "127.0.0.1", 
+          "labels": {
+            "io.rancher.host.linux_kernel_version": "4.1", 
+            "io.rancher.host.docker_version": "1.9"
+          }, 
+          "name": "default", 
+          "hostId": 1, 
+          "uuid": "515ef0f5-9826-4b07-b041-db0785098661"
+        }, 
+        "container": {
+          "create_index": null, 
+          "hostname": "default", 
+          "primary_ip": "10.42.185.183", 
+          "name": "Network Agent", 
+          "stack_name": null, 
+          "service_name": null, 
+          "start_count": 1, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {}, 
+          "ips": [
+            "10.42.185.183"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "0eed53a0-a3d0-41d7-8c06-05c9065a615d"
+        }, 
+        "stack": null, 
+        "service": null
+      }
+    }, 
+    "10.42.75.49": {
+      "self": {
+        "host": {
+          "agent_ip": "127.0.0.1", 
+          "labels": {
+            "io.rancher.host.linux_kernel_version": "4.1", 
+            "io.rancher.host.docker_version": "1.9"
+          }, 
+          "name": "default", 
+          "hostId": 1, 
+          "uuid": "515ef0f5-9826-4b07-b041-db0785098661"
+        }, 
+        "container": {
+          "create_index": 1, 
+          "hostname": "default", 
+          "primary_ip": "10.42.75.49", 
+          "name": "Default_alena_1", 
+          "stack_name": "Default", 
+          "service_name": "alena", 
+          "start_count": 7, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {
+            "io.rancher.project_service.name": "Default/alena", 
+            "io.rancher.project.name": "Default", 
+            "io.rancher.service.deployment.unit": "38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack_service.name": "Default/alena", 
+            "io.rancher.scheduler.affinity:container_label_soft": "io.rancher.service.deployment.unit=38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack.name": "Default", 
+            "io.rancher.service.launch.config": "io.rancher.service.primary.launch.config", 
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "ips": [
+            "10.42.75.49"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "57ad0af4-01a9-44cb-862c-0e2ed80c6bdb"
+        }, 
+        "stack": {
+          "environment_name": "Default", 
+          "name": "Default", 
+          "uuid": "c1f29ebd-e5b9-4781-9c69-9a063a92b1fa"
+        }, 
+        "service": {
+          "links": {}, 
+          "stack_name": "Default", 
+          "expose": [], 
+          "labels": {
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "vip": "169.254.94.238", 
+          "sidekicks": [], 
+          "external_ips": [], 
+          "uuid": "695036a7-b9fa-4024-87c9-20eb4d534459", 
+          "create_index": 1, 
+          "kind": "service", 
+          "scale": 1, 
+          "name": "alena", 
+          "hostname": null, 
+          "fqdn": null, 
+          "ports": [], 
+          "metadata": {}
+        }
+      }
     }
-  },
-
-  "127.0.0.1": {
-    "who": "127.0.0.1",
-    "version": "1.1"
-  },
-
-  "::1": {
-    "who": "::1",
-    "version": "1.2"
+  }, 
+  "2015-12-19": {
+    "default": {
+      "host": null, 
+      "version": "20-aff454dabf2760385d247a5955488ff375b8230edefe079d3748ab44426edd9f", 
+      "hosts": [
+        {
+          "agent_ip": "127.0.0.1", 
+          "labels": {
+            "io.rancher.host.linux_kernel_version": "4.1", 
+            "io.rancher.host.docker_version": "1.9"
+          }, 
+          "name": "default", 
+          "hostId": 1, 
+          "uuid": "515ef0f5-9826-4b07-b041-db0785098661"
+        }
+      ], 
+      "services": [
+        {
+          "links": {}, 
+          "stack_name": "Default", 
+          "expose": [], 
+          "labels": {
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "vip": "169.254.94.238", 
+          "sidekicks": [], 
+          "external_ips": [], 
+          "uuid": "695036a7-b9fa-4024-87c9-20eb4d534459", 
+          "create_index": 1, 
+          "kind": "service", 
+          "scale": 1, 
+          "name": "alena", 
+          "hostname": null, 
+          "fqdn": null, 
+          "ports": [], 
+          "containers": [
+            "Default_alena_1"
+          ], 
+          "metadata": {}
+        }
+      ], 
+      "stacks": [
+        {
+          "services": [
+            "alena"
+          ], 
+          "environment_name": "Default", 
+          "name": "Default", 
+          "uuid": "c1f29ebd-e5b9-4781-9c69-9a063a92b1fa"
+        }
+      ], 
+      "containers": [
+        {
+          "create_index": 1, 
+          "hostname": "default", 
+          "primary_ip": "10.42.75.49", 
+          "name": "Default_alena_1", 
+          "stack_name": "Default", 
+          "service_name": "alena", 
+          "start_count": 7, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {
+            "io.rancher.project_service.name": "Default/alena", 
+            "io.rancher.project.name": "Default", 
+            "io.rancher.service.deployment.unit": "38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack_service.name": "Default/alena", 
+            "io.rancher.scheduler.affinity:container_label_soft": "io.rancher.service.deployment.unit=38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack.name": "Default", 
+            "io.rancher.service.launch.config": "io.rancher.service.primary.launch.config", 
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "ips": [
+            "10.42.75.49"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "57ad0af4-01a9-44cb-862c-0e2ed80c6bdb"
+        }, 
+        {
+          "create_index": null, 
+          "hostname": "default", 
+          "primary_ip": "10.42.185.183", 
+          "name": "Network Agent", 
+          "stack_name": null, 
+          "service_name": null, 
+          "start_count": 1, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {}, 
+          "ips": [
+            "10.42.185.183"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "0eed53a0-a3d0-41d7-8c06-05c9065a615d"
+        }
+      ]
+    }, 
+    "10.42.185.183": {
+      "self": {
+        "host": {
+          "agent_ip": "127.0.0.1", 
+          "labels": {
+            "io.rancher.host.linux_kernel_version": "4.1", 
+            "io.rancher.host.docker_version": "1.9"
+          }, 
+          "name": "default", 
+          "hostId": 1, 
+          "uuid": "515ef0f5-9826-4b07-b041-db0785098661"
+        }, 
+        "container": {
+          "create_index": null, 
+          "hostname": "default", 
+          "primary_ip": "10.42.185.183", 
+          "name": "Network Agent", 
+          "stack_name": null, 
+          "service_name": null, 
+          "start_count": 1, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {}, 
+          "ips": [
+            "10.42.185.183"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "0eed53a0-a3d0-41d7-8c06-05c9065a615d"
+        }, 
+        "stack": null, 
+        "service": null
+      }
+    }, 
+    "10.42.75.49": {
+      "self": {
+        "host": {
+          "agent_ip": "127.0.0.1", 
+          "labels": {
+            "io.rancher.host.linux_kernel_version": "4.1", 
+            "io.rancher.host.docker_version": "1.9"
+          }, 
+          "name": "default", 
+          "hostId": 1, 
+          "uuid": "515ef0f5-9826-4b07-b041-db0785098661"
+        }, 
+        "container": {
+          "create_index": 1, 
+          "hostname": "default", 
+          "primary_ip": "10.42.75.49", 
+          "name": "Default_alena_1", 
+          "stack_name": "Default", 
+          "service_name": "alena", 
+          "start_count": 7, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {
+            "io.rancher.project_service.name": "Default/alena", 
+            "io.rancher.project.name": "Default", 
+            "io.rancher.service.deployment.unit": "38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack_service.name": "Default/alena", 
+            "io.rancher.scheduler.affinity:container_label_soft": "io.rancher.service.deployment.unit=38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack.name": "Default", 
+            "io.rancher.service.launch.config": "io.rancher.service.primary.launch.config", 
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "ips": [
+            "10.42.75.49"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "57ad0af4-01a9-44cb-862c-0e2ed80c6bdb"
+        }, 
+        "stack": {
+          "environment_name": "Default", 
+          "name": "Default", 
+          "uuid": "c1f29ebd-e5b9-4781-9c69-9a063a92b1fa"
+        }, 
+        "service": {
+          "links": {}, 
+          "stack_name": "Default", 
+          "expose": [], 
+          "labels": {
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "vip": "169.254.94.238", 
+          "sidekicks": [], 
+          "external_ips": [], 
+          "uuid": "695036a7-b9fa-4024-87c9-20eb4d534459", 
+          "create_index": 1, 
+          "kind": "service", 
+          "scale": 1, 
+          "name": "alena", 
+          "hostname": null, 
+          "fqdn": null, 
+          "ports": [], 
+          "metadata": {}
+        }
+      }
+    }
+  }, 
+  "latest": {
+    "default": {
+      "host": null, 
+      "version": "20-aff454dabf2760385d247a5955488ff375b8230edefe079d3748ab44426edd9f", 
+      "hosts": [
+        {
+          "agent_ip": "127.0.0.1", 
+          "labels": {
+            "io.rancher.host.linux_kernel_version": "4.1", 
+            "io.rancher.host.docker_version": "1.9"
+          }, 
+          "name": "default", 
+          "hostId": 1, 
+          "uuid": "515ef0f5-9826-4b07-b041-db0785098661"
+        }
+      ], 
+      "services": [
+        {
+          "links": {}, 
+          "stack_name": "Default", 
+          "expose": [], 
+          "labels": {
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "vip": "169.254.94.238", 
+          "sidekicks": [], 
+          "external_ips": [], 
+          "uuid": "695036a7-b9fa-4024-87c9-20eb4d534459", 
+          "create_index": 1, 
+          "kind": "service", 
+          "scale": 1, 
+          "name": "alena", 
+          "hostname": null, 
+          "fqdn": null, 
+          "ports": [], 
+          "containers": [
+            {
+              "create_index": 1, 
+              "hostname": "default", 
+              "primary_ip": "10.42.75.49", 
+              "name": "Default_alena_1", 
+              "stack_name": "Default", 
+              "service_name": "alena", 
+              "start_count": 7, 
+              "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+              "labels": {
+                "io.rancher.project_service.name": "Default/alena", 
+                "io.rancher.project.name": "Default", 
+                "io.rancher.service.deployment.unit": "38d01516-d784-4fe6-84ef-e25935d376cd", 
+                "io.rancher.stack_service.name": "Default/alena", 
+                "io.rancher.scheduler.affinity:container_label_soft": "io.rancher.service.deployment.unit=38d01516-d784-4fe6-84ef-e25935d376cd", 
+                "io.rancher.stack.name": "Default", 
+                "io.rancher.service.launch.config": "io.rancher.service.primary.launch.config", 
+                "io.rancher.container.pull_image": "always"
+              }, 
+              "ips": [
+                "10.42.75.49"
+              ], 
+              "health_state": null, 
+              "ports": [], 
+              "uuid": "57ad0af4-01a9-44cb-862c-0e2ed80c6bdb"
+            }
+          ], 
+          "metadata": {}
+        }
+      ], 
+      "stacks": [
+        {
+          "services": [
+            {
+              "links": {}, 
+              "stack_name": "Default", 
+              "expose": [], 
+              "labels": {
+                "io.rancher.container.pull_image": "always"
+              }, 
+              "vip": "169.254.94.238", 
+              "sidekicks": [], 
+              "external_ips": [], 
+              "uuid": "695036a7-b9fa-4024-87c9-20eb4d534459", 
+              "create_index": 1, 
+              "kind": "service", 
+              "scale": 1, 
+              "name": "alena", 
+              "hostname": null, 
+              "fqdn": null, 
+              "ports": [], 
+              "metadata": {}
+            }
+          ], 
+          "environment_name": "Default", 
+          "name": "Default", 
+          "uuid": "c1f29ebd-e5b9-4781-9c69-9a063a92b1fa"
+        }
+      ], 
+      "containers": [
+        {
+          "create_index": 1, 
+          "hostname": "default", 
+          "primary_ip": "10.42.75.49", 
+          "name": "Default_alena_1", 
+          "stack_name": "Default", 
+          "service_name": "alena", 
+          "start_count": 7, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {
+            "io.rancher.project_service.name": "Default/alena", 
+            "io.rancher.project.name": "Default", 
+            "io.rancher.service.deployment.unit": "38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack_service.name": "Default/alena", 
+            "io.rancher.scheduler.affinity:container_label_soft": "io.rancher.service.deployment.unit=38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack.name": "Default", 
+            "io.rancher.service.launch.config": "io.rancher.service.primary.launch.config", 
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "ips": [
+            "10.42.75.49"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "57ad0af4-01a9-44cb-862c-0e2ed80c6bdb"
+        }, 
+        {
+          "create_index": null, 
+          "hostname": "default", 
+          "primary_ip": "10.42.185.183", 
+          "name": "Network Agent", 
+          "stack_name": null, 
+          "service_name": null, 
+          "start_count": 1, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {}, 
+          "ips": [
+            "10.42.185.183"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "0eed53a0-a3d0-41d7-8c06-05c9065a615d"
+        }
+      ]
+    }, 
+    "10.42.185.183": {
+      "self": {
+        "host": {
+          "agent_ip": "127.0.0.1", 
+          "labels": {
+            "io.rancher.host.linux_kernel_version": "4.1", 
+            "io.rancher.host.docker_version": "1.9"
+          }, 
+          "name": "default", 
+          "hostId": 1, 
+          "uuid": "515ef0f5-9826-4b07-b041-db0785098661"
+        }, 
+        "container": {
+          "create_index": null, 
+          "hostname": "default", 
+          "primary_ip": "10.42.185.183", 
+          "name": "Network Agent", 
+          "stack_name": null, 
+          "service_name": null, 
+          "start_count": 1, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {}, 
+          "ips": [
+            "10.42.185.183"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "0eed53a0-a3d0-41d7-8c06-05c9065a615d"
+        }, 
+        "stack": null, 
+        "service": null
+      }
+    }, 
+    "10.42.75.49": {
+      "self": {
+        "host": {
+          "agent_ip": "127.0.0.1", 
+          "labels": {
+            "io.rancher.host.linux_kernel_version": "4.1", 
+            "io.rancher.host.docker_version": "1.9"
+          }, 
+          "name": "default", 
+          "hostId": 1, 
+          "uuid": "515ef0f5-9826-4b07-b041-db0785098661"
+        }, 
+        "container": {
+          "create_index": 1, 
+          "hostname": "default", 
+          "primary_ip": "10.42.75.49", 
+          "name": "Default_alena_1", 
+          "stack_name": "Default", 
+          "service_name": "alena", 
+          "start_count": 7, 
+          "host_uuid": "515ef0f5-9826-4b07-b041-db0785098661", 
+          "labels": {
+            "io.rancher.project_service.name": "Default/alena", 
+            "io.rancher.project.name": "Default", 
+            "io.rancher.service.deployment.unit": "38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack_service.name": "Default/alena", 
+            "io.rancher.scheduler.affinity:container_label_soft": "io.rancher.service.deployment.unit=38d01516-d784-4fe6-84ef-e25935d376cd", 
+            "io.rancher.stack.name": "Default", 
+            "io.rancher.service.launch.config": "io.rancher.service.primary.launch.config", 
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "ips": [
+            "10.42.75.49"
+          ], 
+          "health_state": null, 
+          "ports": [], 
+          "uuid": "57ad0af4-01a9-44cb-862c-0e2ed80c6bdb"
+        }, 
+        "stack": {
+          "environment_name": "Default", 
+          "name": "Default", 
+          "uuid": "c1f29ebd-e5b9-4781-9c69-9a063a92b1fa"
+        }, 
+        "service": {
+          "links": {}, 
+          "stack_name": "Default", 
+          "expose": [], 
+          "labels": {
+            "io.rancher.container.pull_image": "always"
+          }, 
+          "vip": "169.254.94.238", 
+          "sidekicks": [], 
+          "external_ips": [], 
+          "uuid": "695036a7-b9fa-4024-87c9-20eb4d534459", 
+          "create_index": 1, 
+          "kind": "service", 
+          "scale": 1, 
+          "name": "alena", 
+          "hostname": null, 
+          "fqdn": null, 
+          "ports": [], 
+          "metadata": {}
+        }
+      }
+    }
   }
 }

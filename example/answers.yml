@@ -1,0 +1,174 @@
+'2015-07-25': &id011
+  default:
+    containers: &id012
+    - &id001
+      create_index: 1
+      health_state: null
+      host_uuid: 515ef0f5-9826-4b07-b041-db0785098661
+      hostname: default
+      ips:
+      - 10.42.75.49
+      labels:
+        io.rancher.project.name: Default
+        io.rancher.container.pull_image: always
+        io.rancher.service.deployment.unit: 38d01516-d784-4fe6-84ef-e25935d376cd
+        io.rancher.service.launch.config: io.rancher.service.primary.launch.config
+        io.rancher.project_service.name: Default/alena
+        io.rancher.scheduler.affinity:container_label_soft: io.rancher.service.deployment.unit=38d01516-d784-4fe6-84ef-e25935d376cd
+        io.rancher.stack.name: Default
+        io.rancher.stack_service.name: Default/alena
+      name: Default_alena_1
+      ports: []
+      primary_ip: 10.42.75.49
+      service_name: alena
+      stack_name: Default
+      start_count: 7
+      uuid: 57ad0af4-01a9-44cb-862c-0e2ed80c6bdb
+    - &id010
+      create_index: null
+      health_state: null
+      host_uuid: 515ef0f5-9826-4b07-b041-db0785098661
+      hostname: default
+      ips:
+      - 10.42.185.183
+      labels: &id002 {}
+      name: Network Agent
+      ports: []
+      primary_ip: 10.42.185.183
+      service_name: null
+      stack_name: null
+      start_count: 1
+      uuid: 0eed53a0-a3d0-41d7-8c06-05c9065a615d
+    host: null
+    hosts:
+    - agent_ip: 127.0.0.1
+      hostId: 1
+      labels:
+        io.rancher.host.linux_kernel_version: '4.1'
+        io.rancher.host.docker_version: '1.9'
+      name: default
+      uuid: 515ef0f5-9826-4b07-b041-db0785098661
+    services:
+    - containers:
+      - *id001
+      create_index: 1
+      expose: &id003 []
+      external_ips: &id004 []
+      fqdn: null
+      hostname: null
+      kind: service
+      labels: &id005
+        io.rancher.container.pull_image: always
+      links: &id006 {}
+      metadata: *id002
+      name: alena
+      ports: &id007 []
+      scale: 1
+      sidekicks: &id008 []
+      stack_name: Default
+      uuid: 695036a7-b9fa-4024-87c9-20eb4d534459
+      vip: 169.254.94.238
+    stacks:
+    - environment_name: Default
+      name: Default
+      services:
+      - &id009
+        create_index: 1
+        expose: *id003
+        external_ips: *id004
+        fqdn: null
+        hostname: null
+        kind: service
+        labels: *id005
+        links: *id006
+        metadata: *id002
+        name: alena
+        ports: *id007
+        scale: 1
+        sidekicks: *id008
+        stack_name: Default
+        uuid: 695036a7-b9fa-4024-87c9-20eb4d534459
+        vip: 169.254.94.238
+      uuid: c1f29ebd-e5b9-4781-9c69-9a063a92b1fa
+    version: 20-aff454dabf2760385d247a5955488ff375b8230edefe079d3748ab44426edd9f
+  10.42.75.49:
+    self:
+      container: *id001
+      host: &id013
+        agent_ip: 127.0.0.1
+        hostId: 1
+        labels:
+          io.rancher.host.linux_kernel_version: '4.1'
+          io.rancher.host.docker_version: '1.9'
+        name: default
+        uuid: 515ef0f5-9826-4b07-b041-db0785098661
+      service: *id009
+      stack: &id014
+        environment_name: Default
+        name: Default
+        uuid: c1f29ebd-e5b9-4781-9c69-9a063a92b1fa
+  10.42.185.183:
+    self:
+      container: *id010
+      host: &id015
+        agent_ip: 127.0.0.1
+        hostId: 1
+        labels:
+          io.rancher.host.linux_kernel_version: '4.1'
+          io.rancher.host.docker_version: '1.9'
+        name: default
+        uuid: 515ef0f5-9826-4b07-b041-db0785098661
+      service: null
+      stack: null
+latest: *id011
+'2015-12-19':
+  default:
+    containers: *id012
+    host: null
+    hosts:
+    - agent_ip: 127.0.0.1
+      hostId: 1
+      labels:
+        io.rancher.host.linux_kernel_version: '4.1'
+        io.rancher.host.docker_version: '1.9'
+      name: default
+      uuid: 515ef0f5-9826-4b07-b041-db0785098661
+    services:
+    - containers:
+      - Default_alena_1
+      create_index: 1
+      expose: *id003
+      external_ips: *id004
+      fqdn: null
+      hostname: null
+      kind: service
+      labels: *id005
+      links: {}
+      metadata: *id002
+      name: alena
+      ports: *id007
+      scale: 1
+      sidekicks: *id008
+      stack_name: Default
+      uuid: 695036a7-b9fa-4024-87c9-20eb4d534459
+      vip: 169.254.94.238
+    stacks:
+    - environment_name: Default
+      name: Default
+      services:
+      - alena
+      uuid: c1f29ebd-e5b9-4781-9c69-9a063a92b1fa
+    version: 20-aff454dabf2760385d247a5955488ff375b8230edefe079d3748ab44426edd9f
+  10.42.75.49:
+    self:
+      container: *id001
+      host: *id013
+      service: *id009
+      stack: *id014
+  10.42.185.183:
+    self:
+      container: *id010
+      host: *id015
+      service: null
+      stack: null
+

@@ -1,0 +1,39 @@
+'2015-12-19': &latest
+  # "default" is a special key that will be checked if no answer is found in a client IP-specific entry
+  default: &a
+    key1: value1
+    arbitrarily:
+      nested:
+        - YAML
+        - of
+        - any
+        - type
+        - 42
+        - null
+        - false
+
+  '192.168.0.2': &b
+    key1: value2
+
+  '10.1.2.2': &c
+    key1: value3
+
+  '::1': 
+    key1: value5
+
+'2015-07-25':
+  default:
+    key1: value4
+    arbitrarily:
+      nested:
+        - YAML
+        - of
+        - any
+        - type
+        - 42
+        - null
+        - false
+  '192.168.0.2': *b
+  '10.1.2.2': *c
+
+latest: *latest

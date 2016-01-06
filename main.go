@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/ghodss/yaml"
 	"github.com/golang/gddo/httputil"
 	"github.com/gorilla/mux"
 )
@@ -22,6 +23,7 @@ import (
 const (
 	ContentText = 1
 	ContentJSON = 2
+	ContentYAML = 3
 
 	// The top-level key in the JSON for the default (not client-specific answers)
 	DEFAULT_KEY = "default"
@@ -34,14 +36,14 @@ const (
 
 var (
 	debug       = flag.Bool("debug", false, "Debug")
+	enableXff   = flag.Bool("xff", false, "X-Forwarded-For header support")
 	listen      = flag.String("listen", ":80", "Address to listen to (TCP)")
-	answersFile = flag.String("answers", "./answers.json", "File containing the answers to respond with")
+	answersFile = flag.String("answers", "./answers.yaml", "File containing the answers to respond with")
 	logFile     = flag.String("log", "", "Log file")
 	pidFile     = flag.String("pid-file", "", "PID to write to")
 
-	versions = []string{"latest", "2015-07-25"}
-	router   = mux.NewRouter()
-	answers  Answers
+	router  = mux.NewRouter()
+	answers Versions
 )
 
 func main() {
@@ -58,23 +60,21 @@ func main() {
 		Methods("GET", "HEAD").
 		Name("Root")
 
-	for _, version := range versions {
-		router.HandleFunc("/{version:"+version+"}", metadata).
-			Methods("GET", "HEAD").
-			Name("Version:" + version)
+	router.HandleFunc("/{version}", metadata).
+		Methods("GET", "HEAD").
+		Name("Version")
 
-		router.HandleFunc("/{version:"+version+"}/", metadata).
-			Methods("GET", "HEAD").
-			Name("Version:" + version)
+	router.HandleFunc("/{version}/", metadata).
+		Methods("GET", "HEAD").
+		Name("Version")
 
-		router.HandleFunc("/{version:"+version+"}/{key:.*}", metadata).
-			Methods("GET", "HEAD").
-			Name("Metadata")
+	router.HandleFunc("/{version}/{key:.*}", metadata).
+		Methods("GET", "HEAD").
+		Name("Metadata")
 
-		router.HandleFunc("/{version:"+version+"}/{key:.*}/", metadata).
-			Methods("GET", "HEAD").
-			Name("Metadata")
-	}
+	router.HandleFunc("/{version}/{key:.*}/", metadata).
+		Methods("GET", "HEAD").
+		Name("Metadata")
 
 	log.Info("Listening on ", *listen)
 	log.Fatal(http.ListenAndServe(*listen, router))
@@ -104,20 +104,22 @@ func parseFlags() {
 }
 
 func loadAnswers() (err error) {
-	temp, err := ParseAnswers(*answersFile)
+	neu, err := ParseAnswers(*answersFile)
 	if err == nil {
-		defaults, ok := temp[DEFAULT_KEY]
-		if ok {
-			defaultsMap, ok := defaults.(map[string]interface{})
+		for _, data := range neu {
+			defaults, ok := data[DEFAULT_KEY]
 			if ok {
-				// Copy the defaults into the per-client info, so there's no
-				// complicated merging and lookup logic when retrieving.
-				mergeDefaults(&temp, defaultsMap)
+				defaultsMap, ok := defaults.(map[string]interface{})
+				if ok {
+					// Copy the defaults into the per-client info, so there's no
+					// complicated merging and lookup logic when retrieving.
+					mergeDefaults(&data, defaultsMap)
+				}
 			}
 		}
 
-		answers = temp
-		log.Infof("Loaded answers for %d IPs", len(answers))
+		answers = neu
+		log.Infof("Loaded answers for %d versions", len(answers))
 	} else {
 		log.Errorf("Failed to load answers: %v", err)
 	}
@@ -151,62 +153,110 @@ func watchSignals() {
 }
 
 func contentType(req *http.Request) int {
-	str := httputil.NegotiateContentType(req, []string{"text/plain", "application/json"}, "text/plain")
-	if str == "application/json" {
+	str := httputil.NegotiateContentType(req, []string{
+		"text/plain",
+		"application/json",
+		"application/yaml",
+		"application/x-yaml",
+		"text/yaml",
+		"text/x-yaml",
+	}, "text/plain")
+
+	if strings.Contains(str, "json") {
 		return ContentJSON
+	} else if strings.Contains(str, "yaml") {
+		return ContentYAML
 	} else {
 		return ContentText
 	}
 }
 
 func root(w http.ResponseWriter, req *http.Request) {
-	clientIp, _, _ := net.SplitHostPort(req.RemoteAddr)
+	log.WithFields(log.Fields{"client": requestIp(req), "version": "root"}).Infof("OK: %s", "/")
 
-	log.WithFields(log.Fields{"client": clientIp, "version": "root"}).Infof("OK: %s", "/")
 	m := make(map[string]interface{})
-	for _, version := range versions {
-		url, err := router.Get("Version:"+version).URL("version", version)
+	for _, k := range answers.Versions() {
+		url, err := router.Get("Version").URL("version", k)
 		if err == nil {
-			m[version] = (*url).String()
+			m[k] = (*url).String()
 		} else {
 			log.Warn("Error: ", err.Error())
 		}
 	}
+
+	// If latest isn't in the list, pretend it is
+	_, ok := m["latest"]
+	if !ok {
+		url, err := router.Get("Version").URL("version", "latest")
+		if err == nil {
+			m["latest"] = (*url).String()
+		} else {
+			log.Warn("Error: ", err.Error())
+		}
+	}
+
 	respondSuccess(w, req, m)
 }
 
 func metadata(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	clientIp, _, _ := net.SplitHostPort(req.RemoteAddr)
+	clientIp := requestIp(req)
+
+	version := vars["version"]
+	_, ok := answers[version]
+	if !ok {
+		// If a `latest` key is not provided, pick the ASCII-betically highest version and call it that.
+		if version == "latest" {
+			version = ""
+			for _, k := range answers.Versions() {
+				if k > version {
+					version = k
+				}
+			}
+
+			log.Debugf("Picked %s for latest version because none provided", version)
+		} else {
+			respondError(w, req, "Invalid version", http.StatusNotFound)
+			return
+		}
+	}
 
 	key := vars["key"]
 	displayKey := "/" + key
 
-	val, ok := answers.Matching(key, clientIp)
+	val, ok := answers.Matching(version, clientIp, key)
 
 	if ok {
-		log.WithFields(log.Fields{"client": clientIp, "version": vars["version"]}).Infof("OK: %s", displayKey)
+		log.WithFields(log.Fields{"version": version, "client": clientIp}).Infof("OK: %s", displayKey)
 		respondSuccess(w, req, val)
 	} else {
-		log.WithFields(log.Fields{"client": clientIp, "version": vars["version"]}).Infof("Error: %s", displayKey)
+		log.WithFields(log.Fields{"version": version, "client": clientIp}).Infof("Error: %s", displayKey)
 		respondError(w, req, "Not found", http.StatusNotFound)
 	}
 }
 
 func respondError(w http.ResponseWriter, req *http.Request, msg string, statusCode int) {
+	obj := make(map[string]interface{})
+	obj["message"] = msg
+	obj["type"] = "error"
+	obj["code"] = statusCode
+
 	switch contentType(req) {
 	case ContentText:
 		http.Error(w, msg, statusCode)
 	case ContentJSON:
-		obj := make(map[string]interface{})
-		obj["message"] = msg
-		obj["type"] = "error"
-		obj["code"] = statusCode
 		bytes, err := json.Marshal(obj)
 		if err == nil {
 			http.Error(w, string(bytes), statusCode)
 		} else {
-			http.Error(w, "{\"message\": \"JSON marshal error\"}", http.StatusInternalServerError)
+			http.Error(w, "{\"type\": \"error\", \"message\": \"JSON marshal error\"}", http.StatusInternalServerError)
+		}
+	case ContentYAML:
+		bytes, err := yaml.Marshal(obj)
+		if err == nil {
+			http.Error(w, string(bytes), statusCode)
+		} else {
+			http.Error(w, "type: \"error\"\nmessage: \"JSON marshal error\"", http.StatusInternalServerError)
 		}
 	}
 }
@@ -217,6 +267,8 @@ func respondSuccess(w http.ResponseWriter, req *http.Request, val interface{}) {
 		respondText(w, req, val)
 	case ContentJSON:
 		respondJSON(w, req, val)
+	case ContentYAML:
+		respondYAML(w, req, val)
 	}
 }
 
@@ -291,6 +343,27 @@ func respondJSON(w http.ResponseWriter, req *http.Request, val interface{}) {
 	if err == nil {
 		w.Write(bytes)
 	} else {
-		http.Error(w, "Error serializing to JSON:"+err.Error(), http.StatusInternalServerError)
+		respondError(w, req, "Error serializing to JSON: "+err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func respondYAML(w http.ResponseWriter, req *http.Request, val interface{}) {
+	bytes, err := yaml.Marshal(val)
+	if err == nil {
+		w.Write(bytes)
+	} else {
+		respondError(w, req, "Error serializing to YAML: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func requestIp(req *http.Request) string {
+	if *enableXff {
+		clientIp := req.Header.Get("X-Forwarded-For")
+		if len(clientIp) > 0 {
+			return clientIp
+		}
+	}
+
+	clientIp, _, _ := net.SplitHostPort(req.RemoteAddr)
+	return clientIp
 }

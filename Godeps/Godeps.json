@@ -1,14 +1,15 @@
 {
 	"ImportPath": "github.com/rancher/rancher-metadata",
 	"GoVersion": "go1.4.1",
-	"Packages": [
-		"./..."
-	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
 			"Comment": "v0.8.3-3-g07d998d",
 			"Rev": "07d998d174c4e2dc90e2f1989a20724220bca1ff"
+		},
+		{
+			"ImportPath": "github.com/ghodss/yaml",
+			"Rev": "73d445a93680fa1a78ae23a5839bad48f32ba1ee"
 		},
 		{
 			"ImportPath": "github.com/golang/gddo/httputil",
@@ -21,6 +22,10 @@
 		{
 			"ImportPath": "github.com/gorilla/mux",
 			"Rev": "104068abd5cf50032c57aecbf2b8ce5b0a08a2cb"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "53feefa2559fb8dfa8d81baad31be332c97d6c77"
 		}
 	]
 }

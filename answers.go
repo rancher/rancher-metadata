@@ -7,26 +7,40 @@ import (
 	"strings"
 )
 
-func (answers *Answers) Matching(path string, answerKey string) (interface{}, bool) {
+func (answers *Versions) Versions() []string {
+	out := make([]string, 0, len(*answers))
+	for k := range *answers {
+		out = append(out, k)
+	}
+
+	return out
+}
+
+func (answers *Versions) Matching(version string, ip string, path string) (interface{}, bool) {
 	var out interface{}
 
+	all, ok := (*answers)[version]
+	if ok == false {
+		return nil, false
+	}
+
 	// Try the client's IP
-	all, ok := (*answers)[answerKey]
+	thisIp, ok := all[ip]
 	if ok == false {
 		// Try the default key because no entry for the client existed
-		if answerKey == DEFAULT_KEY {
+		if ip == DEFAULT_KEY {
 			return nil, false
 		} else {
-			log.Debugf("No answers for %s, trying %s", answerKey, DEFAULT_KEY)
-			return answers.Matching(path, DEFAULT_KEY)
+			log.Debugf("No answers for %s, trying %s", ip, DEFAULT_KEY)
+			return answers.Matching(version, DEFAULT_KEY, path)
 		}
 	}
 
 	if len(path) == 0 {
-		return all, true
+		return thisIp, true
 	}
 
-	out, ok = valueForPath(&all, path)
+	out, ok = valueForPath(&thisIp, path)
 	if ok {
 		return out, true
 	}
