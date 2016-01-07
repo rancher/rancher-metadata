@@ -13,7 +13,7 @@ export PIDFILE=/var/run/rancher-metadata.pid
 RUNDIR=$CATTLE_HOME
 DAEMON=$RUNDIR/bin/rancher-metadata
 RUNNING_DAEMON=$CATTLE_HOME/bin/rancher-metadata
-DAEMON_ARGS="-log /var/log/rancher-metadata.log -answers ${CATTLE_HOME}/etc/cattle/metadata/answers.json -pid-file ${PIDFILE}"
+DAEMON_ARGS="-log /var/log/rancher-metadata.log -answers ${CATTLE_HOME}/etc/cattle/metadata/answers.yml -pid-file ${PIDFILE}"
 NAME=rancher-metadata
 DESC=rancher-metadata
 
