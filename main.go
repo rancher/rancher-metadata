@@ -64,15 +64,7 @@ func main() {
 		Methods("GET", "HEAD").
 		Name("Version")
 
-	router.HandleFunc("/{version}/", metadata).
-		Methods("GET", "HEAD").
-		Name("Version")
-
 	router.HandleFunc("/{version}/{key:.*}", metadata).
-		Methods("GET", "HEAD").
-		Name("Metadata")
-
-	router.HandleFunc("/{version}/{key:.*}/", metadata).
 		Methods("GET", "HEAD").
 		Name("Metadata")
 
@@ -221,9 +213,10 @@ func metadata(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	key := vars["key"]
+	key := strings.TrimRight(vars["key"], "/")
 	displayKey := "/" + key
 
+	log.WithFields(log.Fields{"version": version, "client": clientIp}).Debugf("Searching for: %s", key)
 	val, ok := answers.Matching(version, clientIp, key)
 
 	if ok {
