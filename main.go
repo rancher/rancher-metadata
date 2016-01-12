@@ -278,7 +278,8 @@ func respondText(w http.ResponseWriter, req *http.Request, val interface{}) {
 		fmt.Fprintf(w, "%d", v)
 	case float64:
 		// The default format has extra trailing zeros
-		str := strings.TrimRight(fmt.Sprintf("%f", v), ".0")
+		str := strings.TrimRight(fmt.Sprintf("%f", v), "0")
+		str = strings.TrimRight(str, ".")
 		fmt.Fprint(w, str)
 	case bool:
 		if v {
