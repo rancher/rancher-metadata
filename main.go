@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/ghodss/yaml"
@@ -44,6 +45,11 @@ var (
 
 	router  = mux.NewRouter()
 	answers Versions
+
+	wantRevision   = 1
+	loadedRevision = 0
+	loading        = false
+	ticker         = time.NewTicker(1 * time.Second)
 )
 
 func main() {
@@ -96,6 +102,9 @@ func parseFlags() {
 }
 
 func loadAnswers() (err error) {
+	log.Info("Loading answers")
+	loading = true
+	revision := wantRevision
 	neu, err := ParseAnswers(*answersFile)
 	if err == nil {
 		for _, data := range neu {
@@ -111,6 +120,8 @@ func loadAnswers() (err error) {
 		}
 
 		answers = neu
+		loadedRevision = revision
+		loading = false
 		log.Infof("Loaded answers for %d versions", len(answers))
 	} else {
 		log.Errorf("Failed to load answers: %v", err)
@@ -138,10 +149,23 @@ func watchSignals() {
 
 	go func() {
 		for _ = range c {
-			log.Info("Received HUP signal, reloading answers")
-			loadAnswers()
+			log.Info("Received HUP signal")
+			wantRevision += 1
 		}
 	}()
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				//log.Info("Ping")
+				if !loading && loadedRevision < wantRevision {
+					loadAnswers()
+				}
+			}
+		}
+	}()
+
 }
 
 func contentType(req *http.Request) int {
