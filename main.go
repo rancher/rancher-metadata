@@ -36,12 +36,13 @@ const (
 )
 
 var (
-	debug       = flag.Bool("debug", false, "Debug")
-	enableXff   = flag.Bool("xff", false, "X-Forwarded-For header support")
-	listen      = flag.String("listen", ":80", "Address to listen to (TCP)")
-	answersFile = flag.String("answers", "./answers.yaml", "File containing the answers to respond with")
-	logFile     = flag.String("log", "", "Log file")
-	pidFile     = flag.String("pid-file", "", "PID to write to")
+	debug        = flag.Bool("debug", false, "Debug")
+	enableXff    = flag.Bool("xff", false, "X-Forwarded-For header support")
+	listen       = flag.String("listen", ":80", "Address to listen to (TCP)")
+	listenReload = flag.String("listenReload", "127.0.0.1:8112", "Address to listen to for reload requests (TCP)")
+	answersFile  = flag.String("answers", "./answers.yaml", "File containing the answers to respond with")
+	logFile      = flag.String("log", "", "Log file")
+	pidFile      = flag.String("pid-file", "", "PID to write to")
 
 	router  = mux.NewRouter()
 	answers Versions
@@ -59,7 +60,9 @@ func main() {
 	if err != nil {
 		log.Fatal("Cannot startup without a valid Answers file")
 	}
+
 	watchSignals()
+	watchHttp()
 
 	router.HandleFunc("/favicon.ico", http.NotFound)
 	router.HandleFunc("/", root).
@@ -102,7 +105,7 @@ func parseFlags() {
 }
 
 func loadAnswers() (err error) {
-	log.Info("Loading answers")
+	log.Debug("Loading answers")
 	loading = true
 	revision := wantRevision
 	neu, err := ParseAnswers(*answersFile)
@@ -122,7 +125,7 @@ func loadAnswers() (err error) {
 		answers = neu
 		loadedRevision = revision
 		loading = false
-		log.Infof("Loaded answers for %d versions", len(answers))
+		log.Infof("Loaded answers revision %d for %d versions", revision, len(answers))
 	} else {
 		log.Errorf("Failed to load answers: %v", err)
 	}
@@ -168,6 +171,32 @@ func watchSignals() {
 
 }
 
+func watchHttp() {
+	reloadRouter := mux.NewRouter()
+	reloadRouter.HandleFunc("/favicon.ico", http.NotFound)
+	reloadRouter.HandleFunc("/v1/reload", httpReload).Methods("POST")
+
+	log.Info("Listening for Reload on ", *listenReload)
+	go http.ListenAndServe(*listenReload, reloadRouter)
+}
+
+func httpReload(w http.ResponseWriter, req *http.Request) {
+	wantRevision += 1
+	waitFor := wantRevision
+	log.Debugf("Received HTTP reload request, wait for %d, ", waitFor)
+
+	for {
+		select {
+		case <-time.After(100 * time.Millisecond):
+			//log.Debugf("Now at %d, waiting for %d", loadedRevision, waitFor)
+			if loadedRevision >= waitFor {
+				fmt.Fprintf(w, "OK %d\r\n", loadedRevision)
+				return
+			}
+		}
+	}
+}
+
 func contentType(req *http.Request) int {
 	str := httputil.NegotiateContentType(req, []string{
 		"text/plain",
@@ -188,6 +217,8 @@ func contentType(req *http.Request) int {
 }
 
 func root(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	log.WithFields(log.Fields{"client": requestIp(req), "version": "root"}).Infof("OK: %s", "/")
 
 	m := make(map[string]interface{})
@@ -215,6 +246,8 @@ func root(w http.ResponseWriter, req *http.Request) {
 }
 
 func metadata(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	vars := mux.Vars(req)
 	clientIp := requestIp(req)
 
