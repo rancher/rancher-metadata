@@ -1,0 +1,16 @@
+import:
+- package: github.com/Sirupsen/logrus
+  version: 07d998d174c4e2dc90e2f1989a20724220bca1ff
+
+- package: github.com/golang/gddo/httputil
+  version: eb1f515e0b6ceb153937f5b282636ba541ead31c
+
+- package: github.com/gorilla/context
+  version: 215affda49addc4c8ef7e2534915df2c8c35c6cd
+
+- package: github.com/gorilla/mux
+  version: 104068abd5cf50032c57aecbf2b8ce5b0a08a2cb
+
+- package: gopkg.in/yaml.v2
+  version: ca8f6aacaa4072fe5d27388b07162941cd750c65
+  repo:    https://github.com/rancher/yaml.git
