@@ -16,9 +16,9 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/ghodss/yaml"
 	"github.com/golang/gddo/httputil"
 	"github.com/gorilla/mux"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
