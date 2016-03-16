@@ -12,5 +12,5 @@ import:
   version: 104068abd5cf50032c57aecbf2b8ce5b0a08a2cb
 
 - package: gopkg.in/yaml.v2
-  version: ca8f6aacaa4072fe5d27388b07162941cd750c65
+  version: fc96f64724b16cf262e47fb355e6dcea3127beb5
   repo:    https://github.com/rancher/yaml.git

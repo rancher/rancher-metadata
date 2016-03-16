@@ -36,7 +36,7 @@ func convertKeysToStrings(item interface{}) interface{} {
 		return newMap
 
 	case []interface{}:
-		var newArray []interface{}
+		newArray := make([]interface{}, 0)
 		for _, value := range typedDatas {
 			newArray = append(newArray, convertKeysToStrings(value))
 		}
