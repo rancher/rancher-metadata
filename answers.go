@@ -4,7 +4,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"reflect"
 	"strconv"
-	"strings"
 )
 
 func (answers *Versions) Versions() []string {
@@ -16,7 +15,7 @@ func (answers *Versions) Versions() []string {
 	return out
 }
 
-func (answers *Versions) Matching(version string, ip string, path string) (interface{}, bool) {
+func (answers *Versions) Matching(version string, ip string, path []string) (interface{}, bool) {
 	var out interface{}
 
 	all, ok := (*answers)[version]
@@ -48,11 +47,10 @@ func (answers *Versions) Matching(version string, ip string, path string) (inter
 	return nil, false
 }
 
-func valueForPath(in *interface{}, path string) (interface{}, bool) {
+func valueForPath(in *interface{}, path []string) (interface{}, bool) {
 	out := *in
-	parts := strings.Split(path, "/")
 
-	for _, key := range parts {
+	for _, key := range path {
 		valid := false
 
 		switch v := out.(type) {

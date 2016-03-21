@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"sort"
@@ -278,11 +279,22 @@ func metadata(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	key := strings.TrimRight(vars["key"], "/")
-	displayKey := "/" + key
+	path := strings.TrimRight(req.URL.EscapedPath()[1:], "/")
+	pathSegments := strings.Split(path, "/")[1:]
+	displayKey := ""
+	var err error
+	for i := 0; err == nil && i < len(pathSegments); i++ {
+		displayKey += "/" + pathSegments[i]
+		pathSegments[i], err = url.QueryUnescape(pathSegments[i])
+	}
 
-	log.WithFields(log.Fields{"version": version, "client": clientIp}).Debugf("Searching for: %s", key)
-	val, ok := answers.Matching(version, clientIp, key)
+	if err != nil {
+		respondError(w, req, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	log.WithFields(log.Fields{"version": version, "client": clientIp}).Debugf("Searching for: %s", displayKey)
+	val, ok := answers.Matching(version, clientIp, pathSegments)
 
 	if ok {
 		log.WithFields(log.Fields{"version": version, "client": clientIp}).Infof("OK: %s", displayKey)
@@ -359,9 +371,9 @@ func respondText(w http.ResponseWriter, req *http.Request, val interface{}) {
 			_, isMap := vv.(map[string]interface{})
 			_, isArray := vv.([]interface{})
 			if isMap || isArray {
-				out[i] = fmt.Sprintf("%s/\n", k)
+				out[i] = fmt.Sprintf("%s/\n", url.QueryEscape(k))
 			} else {
-				out[i] = fmt.Sprintf("%s\n", k)
+				out[i] = fmt.Sprintf("%s\n", url.QueryEscape(k))
 			}
 			i++
 		}
@@ -376,19 +388,19 @@ func respondText(w http.ResponseWriter, req *http.Request, val interface{}) {
 			_, isArray := vv.([]interface{})
 
 			if isMap {
-				// If the child is a map and has a "name" property, show "key=name"
+				// If the child is a map and has a "name" property, show index=name ("0=foo")
 				name, ok := vvMap[MAGIC_ARRAY_KEY]
 				if ok {
-					fmt.Fprintf(w, "%d=%s\n", k, name)
+					fmt.Fprintf(w, "%d=%s\n", k, url.QueryEscape(name.(string)))
 					continue
 				}
 			}
 
 			if isMap || isArray {
-				// If the child is a map or array, show "key/"
+				// If the child is a map or array, show index ("0/")
 				fmt.Fprintf(w, "%d/\n", k)
 			} else {
-				// Otherwise, show "key"
+				// Otherwise, show index ("0" )
 				fmt.Fprintf(w, "%d\n", k)
 			}
 		}
