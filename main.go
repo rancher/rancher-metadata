@@ -36,6 +36,7 @@ const (
 )
 
 var (
+	showVersion  = flag.Bool("version", false, "Show version")
 	debug        = flag.Bool("debug", false, "Debug")
 	enableXff    = flag.Bool("xff", false, "X-Forwarded-For header support")
 	listen       = flag.String("listen", ":80", "Address to listen to (TCP)")
@@ -47,6 +48,7 @@ var (
 	router  = mux.NewRouter()
 	answers Versions
 
+	VERSION        string
 	wantRevision   = 1
 	loadedRevision = 0
 	loading        = false
@@ -54,8 +56,14 @@ var (
 )
 
 func main() {
-	log.Info("Starting rancher-metadata")
 	parseFlags()
+
+	if *showVersion {
+		fmt.Printf("%s\n", VERSION)
+		os.Exit(0)
+	}
+
+	log.Infof("Starting rancher-metadata %s", VERSION)
 	err := loadAnswers()
 	if err != nil {
 		log.Fatal("Cannot startup without a valid Answers file")
