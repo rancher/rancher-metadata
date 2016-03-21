@@ -48,15 +48,16 @@ func convertKeysToStrings(item interface{}) interface{} {
 }
 
 func ParseAnswers(path string) (out Versions, err error) {
+	var tmp Versions
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Warn("Failed to find: ", path)
+			return tmp, nil
 		}
 		return nil, err
 	}
 
-	var tmp Versions
 	err = yaml.Unmarshal(data, &tmp)
 
 	tmp = convertVersionKeysToStrings(tmp)
