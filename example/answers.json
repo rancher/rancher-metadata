@@ -1,7 +1,10 @@
 {
   "2015-07-25": {
     "default": {
-      "host": null, 
+      "host": null,
+      "sla/sh": {
+        "sub": "key"
+      },
       "version": "20-aff454dabf2760385d247a5955488ff375b8230edefe079d3748ab44426edd9f", 
       "hosts": [
         {
@@ -241,6 +244,9 @@
   }, 
   "2015-12-19": {
     "default": {
+      "sla/sh": {
+        "sub": "key"
+      },
       "host": null, 
       "version": "20-aff454dabf2760385d247a5955488ff375b8230edefe079d3748ab44426edd9f", 
       "hosts": [
