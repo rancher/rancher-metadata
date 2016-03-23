@@ -6,7 +6,8 @@ cd $(dirname $0)
 
 chmod +x bin/rancher-metadata
 
-mkdir -p content-home
+mkdir -p content-home/etc/cattle/rancher-metadata
+touch content-home/etc/cattle/rancher-metadata/http-reload
 mv bin content-home
 
 stage_files
