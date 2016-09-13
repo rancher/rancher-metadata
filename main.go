@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,7 +15,8 @@ import (
 	"strings"
 	"syscall"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
+	"github.com/codegangsta/cli"
 	"github.com/golang/gddo/httputil"
 	"github.com/gorilla/mux"
 	yaml "gopkg.in/yaml.v2"
@@ -37,84 +37,142 @@ const (
 )
 
 var (
-	showVersion  = flag.Bool("version", false, "Show version")
-	debug        = flag.Bool("debug", false, "Debug")
-	enableXff    = flag.Bool("xff", false, "X-Forwarded-For header support")
-	listen       = flag.String("listen", ":80", "Address to listen to (TCP)")
-	listenReload = flag.String("listenReload", "127.0.0.1:8112", "Address to listen to for reload requests (TCP)")
-	answersFile  = flag.String("answers", "./answers.yaml", "File containing the answers to respond with")
-	logFile      = flag.String("log", "", "Log file")
-	pidFile      = flag.String("pid-file", "", "PID to write to")
-
-	router  = mux.NewRouter()
-	answers Versions
-
-	VERSION    string
-	loading    = false
-	reloadChan = make(chan chan error)
+	VERSION string
 )
 
+// ServerConfig specifies the configuration for the metadata server
+type ServerConfig struct {
+	answersFilePath string
+	listen          string
+	listenReload    string
+	enableXff       bool
+
+	router       *mux.Router
+	reloadRouter *mux.Router
+	answers      Versions
+	loading      bool
+	reloadChan   chan chan error
+}
+
 func main() {
-	parseFlags()
-
-	if *showVersion {
-		fmt.Printf("%s\n", VERSION)
-		os.Exit(0)
-	}
-
-	log.Infof("Starting rancher-metadata %s", VERSION)
-	err := loadAnswers()
-	if err != nil {
-		log.Fatal("Cannot startup without a valid Answers file")
-	}
-
-	watchSignals()
-	watchHttp()
-
-	router.HandleFunc("/favicon.ico", http.NotFound)
-	router.HandleFunc("/", root).
-		Methods("GET", "HEAD").
-		Name("Root")
-
-	router.HandleFunc("/{version}", metadata).
-		Methods("GET", "HEAD").
-		Name("Version")
-
-	router.HandleFunc("/{version}/{key:.*}", metadata).
-		Methods("GET", "HEAD").
-		Name("Metadata")
-
-	log.Info("Listening on ", *listen)
-	log.Fatal(http.ListenAndServe(*listen, router))
+	app := getCliApp()
+	app.Action = appMain
+	app.Run(os.Args)
 }
 
-func parseFlags() {
-	flag.Parse()
-
-	if *debug {
-		log.SetLevel(log.DebugLevel)
+func getCliApp() *cli.App {
+	app := cli.NewApp()
+	app.Version = VERSION
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:  "debug",
+			Usage: "Debug",
+		},
+		cli.BoolFlag{
+			Name:  "xff",
+			Usage: "X-Forwarded-For header support",
+		},
+		cli.StringFlag{
+			Name:  "listen",
+			Value: ":80",
+			Usage: "Address to listen to (TCP)",
+		},
+		cli.StringFlag{
+			Name:  "listenReload",
+			Value: "127.0.0.1:8112",
+			Usage: "Address to listen to for reload requests (TCP)",
+		},
+		cli.StringFlag{
+			Name:  "answers",
+			Value: "./answers.yaml",
+			Usage: "File containing the answers to respond with",
+		},
+		cli.StringFlag{
+			Name:  "log",
+			Value: "",
+			Usage: "Log file",
+		},
+		cli.StringFlag{
+			Name:  "pid-file",
+			Value: "",
+			Usage: "PID to write to",
+		},
 	}
 
-	if *logFile != "" {
-		if output, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-			log.Fatalf("Failed to log to file %s: %v", *logFile, err)
+	return app
+}
+
+func appMain(ctx *cli.Context) error {
+	if ctx.GlobalBool("debug") {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
+	logFile := ctx.GlobalString("log")
+	if logFile != "" {
+		if output, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
+			logrus.Fatalf("Failed to log to file %s: %v", logFile, err)
 		} else {
-			log.SetOutput(output)
+			logrus.SetOutput(output)
 		}
 	}
 
-	if *pidFile != "" {
-		log.Infof("Writing pid %d to %s", os.Getpid(), *pidFile)
-		if err := ioutil.WriteFile(*pidFile, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
-			log.Fatalf("Failed to write pid file %s: %v", *pidFile, err)
+	pidFile := ctx.GlobalString("pid-file")
+	if pidFile != "" {
+		logrus.Infof("Writing pid %d to %s", os.Getpid(), pidFile)
+		if err := ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
+			logrus.Fatalf("Failed to write pid file %s: %v", pidFile, err)
 		}
 	}
+
+	sc := NewServerConfig(
+		ctx.GlobalString("answers"),
+		ctx.GlobalString("listen"),
+		ctx.GlobalString("listenReload"),
+		ctx.GlobalBool("xff"),
+	)
+
+	// Start the server
+	sc.Start()
+
+	return nil
 }
 
-func loadAnswers() (err error) {
-	log.Debug("Loading answers")
-	loading = true
-	neu, err := ParseAnswers(*answersFile)
+func NewServerConfig(answersFilePath, listen, listenReload string, enableXff bool) *ServerConfig {
+
+	router := mux.NewRouter()
+	reloadRouter := mux.NewRouter()
+	reloadChan := make(chan chan error)
+	loading := false
+	answers := (Versions)(nil)
+	sc := &ServerConfig{
+		answersFilePath,
+		listen,
+		listenReload,
+		enableXff,
+		router,
+		reloadRouter,
+		answers,
+		loading,
+		reloadChan,
+	}
+
+	return sc
+}
+
+func (sc *ServerConfig) Start() {
+	logrus.Infof("Starting rancher-metadata %s", VERSION)
+	err := sc.loadAnswers()
+	if err != nil {
+		logrus.Fatal("Cannot startup without a valid Answers file")
+	}
+
+	sc.RunServer()
+}
+
+func (sc *ServerConfig) loadAnswers() error {
+	logrus.Debug("Loading answers: %s", sc.answersFilePath)
+	sc.loading = true
+	neu, err := ParseAnswers(sc.answersFilePath)
 	if err == nil {
 		for _, data := range neu {
 			defaults, ok := data[DEFAULT_KEY]
@@ -128,12 +186,13 @@ func loadAnswers() (err error) {
 			}
 		}
 
-		answers = neu
-		loading = false
-		log.Infof("Loaded answers")
+		sc.answers = neu
+		sc.loading = false
+		logrus.Infof("Loaded answers")
 	} else {
-		log.Errorf("Failed to load answers: %v", err)
+		logrus.Errorf("Failed to load answers: %v", err)
 	}
+
 	return err
 }
 
@@ -151,40 +210,62 @@ func mergeDefaults(clientAnswers *Answers, defaultAnswers map[string]interface{}
 	}
 }
 
-func watchSignals() {
+func (sc *ServerConfig) watchSignals() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGHUP)
 
 	go func() {
 		for _ = range c {
-			log.Info("Received HUP signal")
-			reloadChan <- nil
+			logrus.Info("Received HUP signal")
+			sc.reloadChan <- nil
 		}
 	}()
 
 	go func() {
-		for resp := range reloadChan {
-			err := loadAnswers()
+		for resp := range sc.reloadChan {
+			err := sc.loadAnswers()
 			if resp != nil {
 				resp <- err
 			}
 		}
 	}()
+
 }
 
-func watchHttp() {
-	reloadRouter := mux.NewRouter()
-	reloadRouter.HandleFunc("/favicon.ico", http.NotFound)
-	reloadRouter.HandleFunc("/v1/reload", httpReload).Methods("POST")
+func (sc *ServerConfig) watchHttp() {
+	sc.reloadRouter.HandleFunc("/favicon.ico", http.NotFound)
+	sc.reloadRouter.HandleFunc("/v1/reload", sc.httpReload).Methods("POST")
 
-	log.Info("Listening for Reload on ", *listenReload)
-	go http.ListenAndServe(*listenReload, reloadRouter)
+	logrus.Info("Listening for Reload on ", sc.listenReload)
+	go http.ListenAndServe(sc.listenReload, sc.reloadRouter)
 }
 
-func httpReload(w http.ResponseWriter, req *http.Request) {
-	log.Debugf("Received HTTP reload request")
+func (sc *ServerConfig) RunServer() {
+
+	sc.watchSignals()
+	sc.watchHttp()
+
+	sc.router.HandleFunc("/favicon.ico", http.NotFound)
+	sc.router.HandleFunc("/", sc.root).
+		Methods("GET", "HEAD").
+		Name("Root")
+
+	sc.router.HandleFunc("/{version}", sc.metadata).
+		Methods("GET", "HEAD").
+		Name("Version")
+
+	sc.router.HandleFunc("/{version}/{key:.*}", sc.metadata).
+		Methods("GET", "HEAD").
+		Name("Metadata")
+
+	logrus.Info("Listening on ", sc.listen)
+	logrus.Fatal(http.ListenAndServe(sc.listen, sc.router))
+}
+
+func (sc *ServerConfig) httpReload(w http.ResponseWriter, req *http.Request) {
+	logrus.Debugf("Received HTTP reload request")
 	respChan := make(chan error)
-	reloadChan <- respChan
+	sc.reloadChan <- respChan
 	err := <-respChan
 
 	if err == nil {
@@ -214,54 +295,54 @@ func contentType(req *http.Request) int {
 	}
 }
 
-func root(w http.ResponseWriter, req *http.Request) {
+func (sc *ServerConfig) root(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	log.WithFields(log.Fields{"client": requestIp(req), "version": "root"}).Infof("OK: %s", "/")
+	logrus.WithFields(logrus.Fields{"client": sc.requestIp(req), "version": "root"}).Infof("OK: %s", "/")
 
 	m := make(map[string]interface{})
-	for _, k := range answers.Versions() {
-		url, err := router.Get("Version").URL("version", k)
+	for _, k := range sc.answers.Versions() {
+		url, err := sc.router.Get("Version").URL("version", k)
 		if err == nil {
 			m[k] = (*url).String()
 		} else {
-			log.Warn("Error: ", err.Error())
+			logrus.Warn("Error: ", err.Error())
 		}
 	}
 
 	// If latest isn't in the list, pretend it is
 	_, ok := m["latest"]
 	if !ok {
-		url, err := router.Get("Version").URL("version", "latest")
+		url, err := sc.router.Get("Version").URL("version", "latest")
 		if err == nil {
 			m["latest"] = (*url).String()
 		} else {
-			log.Warn("Error: ", err.Error())
+			logrus.Warn("Error: ", err.Error())
 		}
 	}
 
 	respondSuccess(w, req, m)
 }
 
-func metadata(w http.ResponseWriter, req *http.Request) {
+func (sc *ServerConfig) metadata(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	vars := mux.Vars(req)
-	clientIp := requestIp(req)
+	clientIp := sc.requestIp(req)
 
 	version := vars["version"]
-	_, ok := answers[version]
+	_, ok := sc.answers[version]
 	if !ok {
 		// If a `latest` key is not provided, pick the ASCII-betically highest version and call it that.
 		if version == "latest" {
 			version = ""
-			for _, k := range answers.Versions() {
+			for _, k := range sc.answers.Versions() {
 				if k > version {
 					version = k
 				}
 			}
 
-			log.Debugf("Picked %s for latest version because none provided", version)
+			logrus.Debugf("Picked %s for latest version because none provided", version)
 		} else {
 			respondError(w, req, "Invalid version", http.StatusNotFound)
 			return
@@ -282,14 +363,14 @@ func metadata(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	log.WithFields(log.Fields{"version": version, "client": clientIp}).Debugf("Searching for: %s", displayKey)
-	val, ok := answers.Matching(version, clientIp, pathSegments)
+	logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Debugf("Searching for: %s", displayKey)
+	val, ok := sc.answers.Matching(version, clientIp, pathSegments)
 
 	if ok {
-		log.WithFields(log.Fields{"version": version, "client": clientIp}).Infof("OK: %s", displayKey)
+		logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Infof("OK: %s", displayKey)
 		respondSuccess(w, req, val)
 	} else {
-		log.WithFields(log.Fields{"version": version, "client": clientIp}).Infof("Error: %s", displayKey)
+		logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Infof("Error: %s", displayKey)
 		respondError(w, req, "Not found", http.StatusNotFound)
 	}
 }
@@ -416,8 +497,8 @@ func respondYAML(w http.ResponseWriter, req *http.Request, val interface{}) {
 	}
 }
 
-func requestIp(req *http.Request) string {
-	if *enableXff {
+func (sc *ServerConfig) requestIp(req *http.Request) string {
+	if sc.enableXff {
 		clientIp := req.Header.Get("X-Forwarded-For")
 		if len(clientIp) > 0 {
 			return clientIp
