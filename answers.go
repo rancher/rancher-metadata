@@ -4,6 +4,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 func (answers *Versions) Versions() []string {
@@ -42,6 +43,17 @@ func (answers *Versions) Matching(version string, ip string, path []string) (int
 	out, ok = valueForPath(&thisIp, path)
 	if ok {
 		return out, true
+	} else {
+		// Try the path all lowercased for case-insensitivity
+		var lowerPath []string
+		for _, k := range path {
+			lowerPath = append(lowerPath, strings.ToLower(k))
+		}
+		log.Debugf("Not found, trying lowercase, %s", lowerPath)
+		out, ok = valueForPath(&thisIp, lowerPath)
+		if ok {
+			return out, true
+		}
 	}
 
 	return nil, false
@@ -57,7 +69,7 @@ func valueForPath(in *interface{}, path []string) (interface{}, bool) {
 		case []interface{}:
 			idx, err := strconv.ParseInt(key, 10, 64)
 			if err == nil {
-				// Is the part is a number, treat it like an array index
+				// If the part is a number, treat it like an array index
 				if idx >= 0 && idx < int64(len(v)) {
 					out = v[idx]
 					valid = true
