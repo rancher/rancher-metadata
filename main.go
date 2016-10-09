@@ -97,6 +97,10 @@ func getCliApp() *cli.App {
 			Value: "",
 			Usage: "PID to write to",
 		},
+		cli.BoolFlag{
+			Name:  "subscribe",
+			Usage: "Subscribe to Rancher events",
+		},
 	}
 
 	return app
@@ -131,6 +135,18 @@ func appMain(ctx *cli.Context) error {
 		ctx.GlobalBool("xff"),
 	)
 
+	if ctx.Bool("subscribe") {
+		logrus.Info("Subscribing to events")
+		s := NewSubscriber(os.Getenv("CATTLE_URL"),
+			os.Getenv("CATTLE_ACCESS_KEY"),
+			os.Getenv("CATTLE_SECRET_KEY"),
+			ctx.String("answers"),
+			sc.loadAnswersFromFile)
+		if err := s.Subscribe(); err != nil {
+			logrus.Fatal("Failed to subscribe", err)
+		}
+	}
+
 	// Start the server
 	sc.Start()
 
@@ -138,7 +154,6 @@ func appMain(ctx *cli.Context) error {
 }
 
 func NewServerConfig(answersFilePath, listen, listenReload string, enableXff bool) *ServerConfig {
-
 	router := mux.NewRouter()
 	reloadRouter := mux.NewRouter()
 	reloadChan := make(chan chan error)
@@ -170,9 +185,14 @@ func (sc *ServerConfig) Start() {
 }
 
 func (sc *ServerConfig) loadAnswers() error {
-	logrus.Debug("Loading answers: %s", sc.answersFilePath)
+	_, err := sc.loadAnswersFromFile(sc.answersFilePath)
+	return err
+}
+
+func (sc *ServerConfig) loadAnswersFromFile(file string) (Versions, error) {
+	logrus.Debug("Loading answers")
 	sc.loading = true
-	neu, err := ParseAnswers(sc.answersFilePath)
+	neu, err := ParseAnswers(file)
 	if err == nil {
 		for _, data := range neu {
 			defaults, ok := data[DEFAULT_KEY]
@@ -193,7 +213,7 @@ func (sc *ServerConfig) loadAnswers() error {
 		logrus.Errorf("Failed to load answers: %v", err)
 	}
 
-	return err
+	return sc.answers, err
 }
 
 func mergeDefaults(clientAnswers *Answers, defaultAnswers map[string]interface{}) {
