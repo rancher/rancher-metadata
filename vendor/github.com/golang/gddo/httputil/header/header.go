@@ -162,7 +162,6 @@ func ParseValueAndParams(header http.Header, key string) (value string, params m
 	return
 }
 
-// AcceptSpec describes an Accept* header.
 type AcceptSpec struct {
 	Value string
 	Q     float64
@@ -281,14 +280,14 @@ func expectTokenOrQuoted(s string) (value string, rest string) {
 				case escape:
 					escape = false
 					p[j] = b
-					j++
+					j += 1
 				case b == '\\':
 					escape = true
 				case b == '"':
 					return string(p[:j]), s[i+1:]
 				default:
 					p[j] = b
-					j++
+					j += 1
 				}
 			}
 			return "", ""
