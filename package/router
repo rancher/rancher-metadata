@@ -1,0 +1,27 @@
+#!/bin/bash
+set -e
+
+trap "exit 0" SIGTERM SIGINT
+
+STATE=/var/tmp/ip
+IP=
+
+while true; do
+    if [ -e $STATE ]; then
+        NEW_IP=$(<$STATE)
+        if [ "$NEW_IP" != "$IP" ]; then
+            iptables -w -t nat -N CATTLE_METADATA || true
+            iptables -w -t nat -F CATTLE_METADATA
+            iptables -w -t nat -A CATTLE_METADATA -p tcp -d 169.254.169.250 --dport 80 -j DNAT --to ${NEW_IP}:80
+            for i in PREROUTING OUTPUT; do
+                iptables -w -t nat -D $i -j CATTLE_METADATA || true
+                iptables -w -t nat -I $i -j CATTLE_METADATA
+            done
+            IP=${NEW_IP}
+            echo Forwarding traffic to $IP
+        fi
+    else
+        echo Waiting for $STATE
+    fi
+    sleep 2
+done
