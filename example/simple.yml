@@ -2,6 +2,9 @@
   # "default" is a special key that will be checked if no answer is found in a client IP-specific entry
   default: &a
     key1: value1
+    key2: value2
+    key3: value3a
+    KEY3: value3b
     arbitrarily:
       nested:
         - YAML
