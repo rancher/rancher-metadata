@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+ip addr show dev eth0 | grep 'inet ' | awk '{print $2}' | cut -f1 -d/ > /var/tmp/ip
+exec rancher-metadata -subscribe
