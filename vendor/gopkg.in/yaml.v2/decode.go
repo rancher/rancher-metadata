@@ -26,6 +26,7 @@ type node struct {
 	implicit     bool
 	children     []*node
 	anchors      map[string]*node
+	aliasCache   map[string]reflect.Value
 }
 
 // ----------------------------------------------------------------------------
@@ -134,6 +135,7 @@ func (p *parser) node(kind int) *node {
 func (p *parser) document() *node {
 	n := p.node(documentNode)
 	n.anchors = make(map[string]*node)
+	n.aliasCache = make(map[string]reflect.Value)
 	p.doc = n
 	p.skip()
 	n.children = append(n.children, p.parse())
@@ -308,6 +310,12 @@ func (d *decoder) document(n *node, out reflect.Value) (good bool) {
 }
 
 func (d *decoder) alias(n *node, out reflect.Value) (good bool) {
+	if ref, ok := d.doc.aliasCache[n.value]; ok {
+		out.Set(ref)
+		delete(d.aliases, n.value)
+		return true
+	}
+
 	an, ok := d.doc.anchors[n.value]
 	if !ok {
 		failf("unknown anchor '%s' referenced", n.value)
@@ -318,6 +326,9 @@ func (d *decoder) alias(n *node, out reflect.Value) (good bool) {
 	d.aliases[n.value] = true
 	good = d.unmarshal(an, out)
 	delete(d.aliases, n.value)
+
+	d.doc.aliasCache[n.value] = reflect.ValueOf(convertKeysToStrings(out.Interface()))
+
 	return good
 }
 
