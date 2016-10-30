@@ -18,4 +18,6 @@ fi
 cp ../bin/rancher-metadata .
 docker build -t ${REPO}/metadata:${TAG} .
 
+mkdir -p ../dist
+echo ${REPO}/metadata:${TAG} > ../dist/images
 echo Built ${REPO}/metadata:${TAG}
