@@ -77,12 +77,17 @@ func valueForPath(in *interface{}, path []string) (interface{}, bool) {
 			} else {
 				// Otherwise maybe it's the name of a child map
 				vAry, _ := out.([]interface{})
+			outer:
 				for childK, childV := range vAry {
 					childMap, ok := childV.(map[string]interface{})
-					if ok && childMap[MAGIC_ARRAY_KEY] == key {
-						out = vAry[childK]
-						valid = true
-						break
+					if ok {
+						for _, magicKey := range MAGIC_ARRAY_KEYS {
+							if childMap[magicKey] == key {
+								out = vAry[childK]
+								valid = true
+								break outer
+							}
+						}
 					}
 				}
 			}
