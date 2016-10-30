@@ -29,15 +29,14 @@ const (
 
 	// The top-level key in the JSON for the default (not client-specific answers)
 	DEFAULT_KEY = "default"
-
-	// A key to check for magic traversing of arrays by a string field in them
-	// For example, given: { things: [ {name: 'asdf', stuff: 42}, {name: 'zxcv', stuff: 43} ] }
-	// Both ../things/0/stuff and ../things/asdf/stuff will return 42 because 'asdf' matched the 'anme' field of one of the 'things'.
-	MAGIC_ARRAY_KEY = "name"
 )
 
 var (
 	VERSION string
+	// A key to check for magic traversing of arrays by a string field in them
+	// For example, given: { things: [ {name: 'asdf', stuff: 42}, {name: 'zxcv', stuff: 43} ] }
+	// Both ../things/0/stuff and ../things/asdf/stuff will return 42 because 'asdf' matched the 'anme' field of one of the 'things'.
+	MAGIC_ARRAY_KEYS = []string{"name", "uuid"}
 )
 
 // ServerConfig specifies the configuration for the metadata server
@@ -473,16 +472,19 @@ func respondText(w http.ResponseWriter, req *http.Request, val interface{}) {
 			fmt.Fprint(w, vv)
 		}
 	case []interface{}:
+	outer:
 		for k, vv := range v {
 			vvMap, isMap := vv.(map[string]interface{})
 			_, isArray := vv.([]interface{})
 
 			if isMap {
 				// If the child is a map and has a "name" property, show index=name ("0=foo")
-				name, ok := vvMap[MAGIC_ARRAY_KEY]
-				if ok {
-					fmt.Fprintf(w, "%d=%s\n", k, url.QueryEscape(name.(string)))
-					continue
+				for _, magicKey := range MAGIC_ARRAY_KEYS {
+					name, ok := vvMap[magicKey]
+					if ok {
+						fmt.Fprintf(w, "%d=%s\n", k, url.QueryEscape(name.(string)))
+						continue outer
+					}
 				}
 			}
 
