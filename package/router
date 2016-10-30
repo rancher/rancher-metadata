@@ -6,6 +6,11 @@ trap "exit 0" SIGTERM SIGINT
 STATE=/var/tmp/ip
 IP=
 
+if [ "$#" != 0 ]; then
+    ip addr show dev eth0 | grep 'inet ' | awk '{print $2}' | cut -f1 -d/ > $STATE
+    exec "$@"
+fi
+
 while true; do
     if [ -e $STATE ]; then
         NEW_IP=$(<$STATE)
