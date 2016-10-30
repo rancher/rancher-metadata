@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/mapstructure"
@@ -45,7 +46,12 @@ func (s *Subscriber) Subscribe() error {
 	}
 
 	go func() {
-		logrus.Fatalf("Exiting subscriber: %v", router.StartWithoutCreate(nil))
+		for {
+			if err := router.StartWithoutCreate(nil); err != nil {
+				logrus.Errorf("Exiting subscriber: %v", err)
+			}
+			time.Sleep(time.Second)
+		}
 	}()
 
 	return nil
