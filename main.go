@@ -13,7 +13,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
@@ -41,6 +43,9 @@ var (
 
 // ServerConfig specifies the configuration for the metadata server
 type ServerConfig struct {
+	sync.Mutex
+	versionCond *sync.Cond
+
 	answersFilePath string
 	listen          string
 	listenReload    string
@@ -48,7 +53,7 @@ type ServerConfig struct {
 
 	router       *mux.Router
 	reloadRouter *mux.Router
-	answers      Versions
+	versions     Versions
 	loading      bool
 	reloadChan   chan chan error
 }
@@ -63,7 +68,7 @@ func getCliApp() *cli.App {
 	app := cli.NewApp()
 	app.Version = VERSION
 	app.Flags = []cli.Flag{
-		cli.BoolFlag{
+		cli.BoolTFlag{
 			Name:  "debug",
 			Usage: "Debug",
 		},
@@ -159,16 +164,17 @@ func NewServerConfig(answersFilePath, listen, listenReload string, enableXff boo
 	loading := false
 	answers := (Versions)(nil)
 	sc := &ServerConfig{
-		answersFilePath,
-		listen,
-		listenReload,
-		enableXff,
-		router,
-		reloadRouter,
-		answers,
-		loading,
-		reloadChan,
+		answersFilePath: answersFilePath,
+		listen:          listen,
+		listenReload:    listenReload,
+		enableXff:       enableXff,
+		router:          router,
+		reloadRouter:    reloadRouter,
+		versions:        answers,
+		loading:         loading,
+		reloadChan:      reloadChan,
 	}
+	sc.versionCond = sync.NewCond(sc)
 
 	return sc
 }
@@ -181,6 +187,50 @@ func (sc *ServerConfig) Start() {
 	}
 
 	sc.RunServer()
+}
+
+func (sc *ServerConfig) answers() Versions {
+	sc.Lock()
+	defer sc.Unlock()
+	return sc.versions
+}
+
+func (sc *ServerConfig) setAnswers(versions Versions) {
+	sc.Lock()
+	defer sc.Unlock()
+	sc.versions = versions
+	sc.versionCond.Broadcast()
+}
+
+func (sc *ServerConfig) lookupAnswer(wait bool, oldValue, version string, ip string, path []string, maxWait time.Duration) (interface{}, bool) {
+	if !wait {
+		return sc.versions.Matching(version, ip, path)
+	}
+
+	if maxWait == time.Duration(0) {
+		maxWait = time.Minute
+	}
+
+	if maxWait > 2*time.Minute {
+		maxWait = 2 * time.Minute
+	}
+
+	start := time.Now()
+
+	sc.Lock()
+	defer sc.Unlock()
+
+	for {
+		val, ok := sc.versions.Matching(version, ip, path)
+		if time.Now().Sub(start) > maxWait {
+			return val, ok
+		}
+		if ok && fmt.Sprint(val) != oldValue {
+			return val, ok
+		}
+
+		sc.versionCond.Wait()
+	}
 }
 
 func (sc *ServerConfig) loadAnswers() error {
@@ -205,14 +255,14 @@ func (sc *ServerConfig) loadAnswersFromFile(file string) (Versions, error) {
 			}
 		}
 
-		sc.answers = neu
+		sc.setAnswers(neu)
 		sc.loading = false
 		logrus.Infof("Loaded answers")
 	} else {
 		logrus.Errorf("Failed to load answers: %v", err)
 	}
 
-	return sc.answers, err
+	return neu, err
 }
 
 func mergeDefaults(clientAnswers *Answers, defaultAnswers map[string]interface{}) {
@@ -274,6 +324,11 @@ func (sc *ServerConfig) RunServer() {
 		Name("Version")
 
 	sc.router.HandleFunc("/{version}/{key:.*}", sc.metadata).
+		Queries("wait", "true", "value", "{oldValue}").
+		Methods("GET", "HEAD").
+		Name("Wait")
+
+	sc.router.HandleFunc("/{version}/{key:.*}", sc.metadata).
 		Methods("GET", "HEAD").
 		Name("Metadata")
 
@@ -319,8 +374,10 @@ func (sc *ServerConfig) root(w http.ResponseWriter, req *http.Request) {
 
 	logrus.WithFields(logrus.Fields{"client": sc.requestIp(req), "version": "root"}).Infof("OK: %s", "/")
 
+	answers := sc.answers()
+
 	m := make(map[string]interface{})
-	for _, k := range sc.answers.Versions() {
+	for _, k := range answers.Versions() {
 		url, err := sc.router.Get("Version").URL("version", k)
 		if err == nil {
 			m[k] = (*url).String()
@@ -350,12 +407,17 @@ func (sc *ServerConfig) metadata(w http.ResponseWriter, req *http.Request) {
 	clientIp := sc.requestIp(req)
 
 	version := vars["version"]
-	_, ok := sc.answers[version]
+	wait := mux.CurrentRoute(req).GetName() == "Wait"
+	oldValue := vars["oldValue"]
+	maxWait, _ := strconv.Atoi(req.URL.Query().Get("maxWait"))
+
+	answers := sc.answers()
+	_, ok := answers[version]
 	if !ok {
 		// If a `latest` key is not provided, pick the ASCII-betically highest version and call it that.
 		if version == "latest" {
 			version = ""
-			for _, k := range sc.answers.Versions() {
+			for _, k := range answers.Versions() {
 				if k > version {
 					version = k
 				}
@@ -382,8 +444,13 @@ func (sc *ServerConfig) metadata(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Debugf("Searching for: %s", displayKey)
-	val, ok := sc.answers.Matching(version, clientIp, pathSegments)
+	logrus.WithFields(logrus.Fields{
+		"version":  version,
+		"client":   clientIp,
+		"wait":     wait,
+		"oldValue": oldValue,
+		"maxWait":  maxWait}).Debugf("Searching for: %s", displayKey)
+	val, ok := sc.lookupAnswer(wait, oldValue, version, clientIp, pathSegments, time.Duration(maxWait)*time.Second)
 
 	if ok {
 		logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Infof("OK: %s", displayKey)
