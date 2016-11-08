@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	revents "github.com/rancher/event-subscriber/events"
 	"github.com/rancher/go-rancher/v2"
+	"github.com/rancher/rancher-metadata/pkg/kicker"
 )
 
 type ReloadFunc func(file string) (Versions, error)
@@ -21,10 +22,11 @@ type Subscriber struct {
 	reload     ReloadFunc
 	answerFile string
 	client     *http.Client
+	kicker     *kicker.Kicker
 }
 
 func NewSubscriber(url, accessKey, secretKey, answerFile string, reload ReloadFunc) *Subscriber {
-	return &Subscriber{
+	s := &Subscriber{
 		url:        url,
 		accessKey:  accessKey,
 		secretKey:  secretKey,
@@ -32,6 +34,12 @@ func NewSubscriber(url, accessKey, secretKey, answerFile string, reload ReloadFu
 		answerFile: answerFile,
 		client:     &http.Client{},
 	}
+	s.kicker = kicker.New(func() {
+		if err := s.downloadAndReload(); err != nil {
+			logrus.Errorf("Failed to download and reload metadata: %v", err)
+		}
+	})
+	return s
 }
 
 func (s *Subscriber) Subscribe() error {
@@ -47,7 +55,8 @@ func (s *Subscriber) Subscribe() error {
 
 	go func() {
 		for {
-			if err := router.StartWithoutCreate(nil); err != nil {
+			sp := revents.SkippingWorkerPool(3, nil)
+			if err := router.RunWithWorkerPool(sp); err != nil {
 				logrus.Errorf("Exiting subscriber: %v", err)
 			}
 			time.Sleep(time.Second)
@@ -70,9 +79,7 @@ func (s *Subscriber) configUpdate(event *revents.Event, c *client.RancherClient)
 	found := false
 	for _, item := range update.Items {
 		if found = item.Name == "metadata-answers"; found {
-			if err := s.downloadAndReload(); err != nil {
-				return err
-			}
+			s.kicker.Kick()
 			break
 		}
 	}
