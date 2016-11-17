@@ -372,7 +372,7 @@ func contentType(req *http.Request) int {
 func (sc *ServerConfig) root(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	logrus.WithFields(logrus.Fields{"client": sc.requestIp(req), "version": "root"}).Infof("OK: %s", "/")
+	logrus.WithFields(logrus.Fields{"client": sc.requestIp(req), "version": "root"}).Debugf("OK: %s", "/")
 
 	answers := sc.answers()
 
@@ -453,7 +453,7 @@ func (sc *ServerConfig) metadata(w http.ResponseWriter, req *http.Request) {
 	val, ok := sc.lookupAnswer(wait, oldValue, version, clientIp, pathSegments, time.Duration(maxWait)*time.Second)
 
 	if ok {
-		logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Infof("OK: %s", displayKey)
+		logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Debugf("OK: %s", displayKey)
 		respondSuccess(w, req, val)
 	} else {
 		logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Infof("Error: %s", displayKey)
