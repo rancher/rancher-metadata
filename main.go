@@ -68,7 +68,7 @@ func getCliApp() *cli.App {
 	app := cli.NewApp()
 	app.Version = VERSION
 	app.Flags = []cli.Flag{
-		cli.BoolTFlag{
+		cli.BoolFlag{
 			Name:  "debug",
 			Usage: "Debug",
 		},
