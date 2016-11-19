@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -103,6 +105,11 @@ func (s *Subscriber) downloadAndReload() error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		content, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("non-200 response %d: %s", resp.StatusCode, content)
+	}
 
 	tempFile := s.answerFile + ".temp"
 	out, err := os.Create(tempFile)
