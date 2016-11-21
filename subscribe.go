@@ -56,8 +56,9 @@ func (s *Subscriber) Subscribe() error {
 	}
 
 	go func() {
+		sp := revents.SkippingWorkerPool(3, nil)
 		for {
-			sp := revents.SkippingWorkerPool(3, nil)
+			s.kicker.Kick()
 			if err := router.RunWithWorkerPool(sp); err != nil {
 				logrus.Errorf("Exiting subscriber: %v", err)
 			}
