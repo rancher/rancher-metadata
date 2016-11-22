@@ -101,11 +101,13 @@ func (s *Subscriber) downloadAndReload() error {
 		return err
 	}
 	req.SetBasicAuth(s.accessKey, s.secretKey)
+	start := time.Now()
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	logrus.Infof("Downloaded in %s", time.Since(start))
 
 	if resp.StatusCode != 200 {
 		content, _ := ioutil.ReadAll(resp.Body)
