@@ -239,7 +239,7 @@ func (sc *ServerConfig) loadAnswers() error {
 }
 
 func (sc *ServerConfig) loadAnswersFromFile(file string) (Versions, error) {
-	logrus.Debug("Loading answers")
+	logrus.Infof("Loading answers")
 	sc.loading = true
 	neu, err := ParseAnswers(file)
 	if err == nil {
