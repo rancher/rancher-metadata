@@ -1,3 +1,3 @@
-FROM rancher/agent-base:v0.2.0
+FROM rancher/agent-base:v0.3.0
 COPY rancher-metadata start.sh /usr/bin/
 CMD ["rancher-metadata"]
