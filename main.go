@@ -54,7 +54,6 @@ type ServerConfig struct {
 	router       *mux.Router
 	reloadRouter *mux.Router
 	versions     Versions
-	loading      bool
 	reloadChan   chan chan error
 }
 
@@ -88,7 +87,7 @@ func getCliApp() *cli.App {
 		},
 		cli.StringFlag{
 			Name:  "answers",
-			Value: "./answers.yaml",
+			Value: "./answers.json",
 			Usage: "File containing the answers to respond with",
 		},
 		cli.StringFlag{
@@ -145,7 +144,7 @@ func appMain(ctx *cli.Context) error {
 			os.Getenv("CATTLE_ACCESS_KEY"),
 			os.Getenv("CATTLE_SECRET_KEY"),
 			ctx.String("answers"),
-			sc.loadAnswersFromFile)
+			sc.SetAnswers)
 		if err := s.Subscribe(); err != nil {
 			logrus.Fatal("Failed to subscribe", err)
 		}
@@ -161,7 +160,6 @@ func NewServerConfig(answersFilePath, listen, listenReload string, enableXff boo
 	router := mux.NewRouter()
 	reloadRouter := mux.NewRouter()
 	reloadChan := make(chan chan error)
-	loading := false
 	answers := (Versions)(nil)
 	sc := &ServerConfig{
 		answersFilePath: answersFilePath,
@@ -171,7 +169,6 @@ func NewServerConfig(answersFilePath, listen, listenReload string, enableXff boo
 		router:          router,
 		reloadRouter:    reloadRouter,
 		versions:        answers,
-		loading:         loading,
 		reloadChan:      reloadChan,
 	}
 	sc.versionCond = sync.NewCond(sc)
@@ -195,7 +192,7 @@ func (sc *ServerConfig) answers() Versions {
 	return sc.versions
 }
 
-func (sc *ServerConfig) setAnswers(versions Versions) {
+func (sc *ServerConfig) SetAnswers(versions Versions) {
 	sc.Lock()
 	defer sc.Unlock()
 	sc.versions = versions
@@ -240,43 +237,15 @@ func (sc *ServerConfig) loadAnswers() error {
 
 func (sc *ServerConfig) loadAnswersFromFile(file string) (Versions, error) {
 	logrus.Infof("Loading answers")
-	sc.loading = true
 	neu, err := ParseAnswers(file)
 	if err == nil {
-		for _, data := range neu {
-			defaults, ok := data[DEFAULT_KEY]
-			if ok {
-				defaultsMap, ok := defaults.(map[string]interface{})
-				if ok {
-					// Copy the defaults into the per-client info, so there's no
-					// complicated merging and lookup logic when retrieving.
-					mergeDefaults(&data, defaultsMap)
-				}
-			}
-		}
-
-		sc.setAnswers(neu)
-		sc.loading = false
-		logrus.Infof("Loaded answers")
+		sc.SetAnswers(neu)
+		logrus.Infof("Loaded answers from file")
 	} else {
-		logrus.Errorf("Failed to load answers: %v", err)
+		logrus.Errorf("Failed to load answers from file: %v", err)
 	}
 
 	return neu, err
-}
-
-func mergeDefaults(clientAnswers *Answers, defaultAnswers map[string]interface{}) {
-	for _, client := range *clientAnswers {
-		clientMap, ok := client.(map[string]interface{})
-		if ok {
-			for k, v := range defaultAnswers {
-				_, exists := clientMap[k]
-				if !exists {
-					clientMap[k] = v
-				}
-			}
-		}
-	}
 }
 
 func (sc *ServerConfig) watchSignals() {
@@ -505,7 +474,7 @@ func respondText(w http.ResponseWriter, req *http.Request, val interface{}) {
 	}
 
 	switch v := val.(type) {
-	case string:
+	case string, json.Number:
 		fmt.Fprint(w, v)
 	case uint, uint8, uint16, uint32, uint64, int, int8, int16, int32, int64:
 		fmt.Fprintf(w, "%d", v)
