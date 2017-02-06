@@ -1,11 +1,11 @@
 package main
 
 import (
-	yaml "gopkg.in/yaml.v2"
-
+	"encoding/json"
 	"io/ioutil"
 	"os"
 
+	"bytes"
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -48,6 +48,7 @@ func convertKeysToStrings(item interface{}) interface{} {
 }
 
 func ParseAnswers(path string) (out Versions, err error) {
+	var delta *MetadataDelta
 	var tmp Versions
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -58,7 +59,17 @@ func ParseAnswers(path string) (out Versions, err error) {
 		return nil, err
 	}
 
-	err = yaml.Unmarshal(data, &tmp)
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	err = dec.Decode(&delta)
+	if err != nil {
+		return tmp, err
+	}
+
+	tmp, err = GenerateAnswers(delta)
+	if err != nil {
+		return tmp, err
+	}
 
 	tmp = convertVersionKeysToStrings(tmp)
 
