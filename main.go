@@ -22,6 +22,7 @@ import (
 	"github.com/golang/gddo/httputil"
 	"github.com/gorilla/mux"
 	yaml "gopkg.in/yaml.v2"
+	_ "net/http/pprof"
 )
 
 const (
@@ -149,6 +150,10 @@ func appMain(ctx *cli.Context) error {
 			logrus.Fatal("Failed to subscribe", err)
 		}
 	}
+
+	go func() {
+		logrus.Info(http.ListenAndServe(":6060", nil))
+	}()
 
 	// Start the server
 	sc.Start()
