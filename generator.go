@@ -187,10 +187,15 @@ func applyVersionToData(orig Interim, version string) (*Interim, error) {
 					for _, p := range originalPorts {
 						port := p.(string)
 						splitted := strings.Split(port, ":")
-						if len(splitted) == 3 {
+						if len(splitted) == 3 && splitted[0] != "0.0.0.0" {
 							newPorts = append(newPorts, port)
 						} else {
-							port = fmt.Sprintf("%s:%s", c["host_ip"], port)
+							if len(splitted) == 3 {
+								port = fmt.Sprintf("%s%s", c["host_ip"], strings.TrimPrefix(port, "0.0.0.0"))
+							} else {
+								port = fmt.Sprintf("%s:%s", c["host_ip"], port)
+							}
+
 							newPorts = append(newPorts, port)
 						}
 					}
