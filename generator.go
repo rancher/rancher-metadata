@@ -154,7 +154,9 @@ func applyVersionToData(orig Interim, version string) (*Interim, error) {
 	for _, c := range modified.UUIDToContainer {
 		switch version {
 		case version3:
-			c["name"] = strings.ToLower(c["name"].(string))
+			if c["name"] != nil {
+				c["name"] = strings.ToLower(c["name"].(string))
+			}
 			if c["service_name"] != nil {
 				c["service_name"] = strings.ToLower(c["service_name"].(string))
 			}
