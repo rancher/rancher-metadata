@@ -33,7 +33,7 @@ func GenerateAnswers(delta *MetadataDelta) (Versions, error) {
 	if err != nil {
 		return nil, err
 	}
-	return convertVersionKeysToStrings(versions), nil
+	return versions, nil
 }
 
 func generateVersions(interim *Interim) (Versions, error) {
