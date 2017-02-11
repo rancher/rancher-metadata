@@ -12,17 +12,18 @@ const version3 = "2016-07-29"
 
 func GenerateAnswers(delta *MetadataDelta) (Versions, error) {
 	// 1. generate interim data
+	s := len(delta.Data)
 	interim := &Interim{
-		UUIDToService:                   make(map[string]map[string]interface{}),
-		UUIDToContainer:                 make(map[string]map[string]interface{}),
-		UUIDToStack:                     make(map[string]map[string]interface{}),
-		UUIDToHost:                      make(map[string]map[string]interface{}),
-		StackUUIDToServicesUUID:         make(map[string][]string),
-		ServiceUUIDNameToContainersUUID: make(map[string][]string),
-		ContainerUUIDToContainerLink:    make(map[string]map[string]interface{}),
-		ServiceUUIDToServiceLink:        make(map[string]map[string]interface{}),
-		Networks:                        make([]interface{}, 0),
-		Default:                         make(map[string]interface{}),
+		UUIDToService:                   make(map[string]map[string]interface{}, s),
+		UUIDToContainer:                 make(map[string]map[string]interface{}, s),
+		UUIDToStack:                     make(map[string]map[string]interface{}, s),
+		UUIDToHost:                      make(map[string]map[string]interface{}, s),
+		StackUUIDToServicesUUID:         make(map[string][]string, s),
+		ServiceUUIDNameToContainersUUID: make(map[string][]string, s),
+		ContainerUUIDToContainerLink:    make(map[string]map[string]interface{}, s),
+		ServiceUUIDToServiceLink:        make(map[string]map[string]interface{}, s),
+		Networks:                        []interface{}{},
+		Default:                         make(map[string]interface{}, s),
 	}
 
 	for _, o := range delta.Data {
