@@ -161,6 +161,7 @@ func (s *Subscriber) downloadAndReload() error {
 		return err
 	}
 
+	logrus.Infof("Generating answers")
 	// 3. Geneate answers
 	versions, err := GenerateAnswers(Delta)
 	if err != nil {
