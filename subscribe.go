@@ -98,11 +98,16 @@ func (s *Subscriber) configUpdate(event *revents.Event, c *client.RancherClient)
 	}
 
 	found := false
+	i := 0
 	for _, item := range update.Items {
 		if found = item.Name == "metadata-answers"; found {
-			s.kicker.Kick()
+			i = s.kicker.Kick()
 			break
 		}
+	}
+
+	if i > 0 {
+		s.kicker.Wait(i)
 	}
 
 	_, err := c.Publish.Create(&client.Publish{
@@ -133,7 +138,7 @@ func (s *Subscriber) saveDeltaToFile() error {
 }
 
 func (s *Subscriber) downloadAndReload() error {
-	url := s.url + "/configcontent/metadata-answers"
+	url := s.url + "/configcontent/metadata-answers?client=v2"
 	// 1. Download meta
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -178,7 +183,7 @@ func (s *Subscriber) downloadAndReload() error {
 	if ok {
 		version, _ := def["version"].(string)
 		logrus.Infof("Applied %s", url+"?version="+version)
-		req, err := http.NewRequest("PUT", url+"?version="+version, nil)
+		req, err := http.NewRequest("PUT", url+"?client=v2&version="+version, nil)
 		if err != nil {
 			return err
 		}
@@ -194,6 +199,8 @@ func (s *Subscriber) downloadAndReload() error {
 	} else {
 		return fmt.Errorf("Failed to locate default version")
 	}
+
+	logrus.Infof("Download and reload in: %v", time.Since(start))
 
 	return nil
 }
