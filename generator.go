@@ -216,6 +216,13 @@ func applyVersionToData(orig Interim, version string) (*Interim, error) {
 		sUUID := getServiceUUID(s["uuid"].(string), s["name"].(string))
 
 		stackUUID := s["stack_uuid"].(string)
+		// add itself to the stack list
+		var svcUUIDs []string
+		if _, ok := modified.StackUUIDToServicesUUID[stackUUID]; ok {
+			svcUUIDs = modified.StackUUIDToServicesUUID[stackUUID]
+		}
+		svcUUIDs = append(svcUUIDs, getServiceUUID(s["uuid"].(string), s["name"].(string)))
+		modified.StackUUIDToServicesUUID[stackUUID] = svcUUIDs
 		var cs []interface{}
 		var cNames []interface{}
 		cUUIDs := modified.ServiceUUIDNameToContainersUUID[sUUID]
@@ -250,13 +257,6 @@ func applyVersionToData(orig Interim, version string) (*Interim, error) {
 				}
 			}
 		}
-		// add itself to the stack list
-		var svcUUIDs []string
-		if _, ok := modified.StackUUIDToServicesUUID[stackUUID]; ok {
-			svcUUIDs = modified.StackUUIDToServicesUUID[stackUUID]
-		}
-		svcUUIDs = append(svcUUIDs, getServiceUUID(s["uuid"].(string), s["name"].(string)))
-		modified.StackUUIDToServicesUUID[stackUUID] = svcUUIDs
 	}
 
 	// 3. Process stacks
