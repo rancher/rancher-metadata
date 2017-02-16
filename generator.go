@@ -362,7 +362,7 @@ func addContainerLink(link map[string]interface{}, interim *Interim) {
 }
 
 func getServiceUUID(UUID string, name string) string {
-	return fmt.Sprintf("%s_%s", UUID, name)
+	return strings.ToLower(fmt.Sprintf("%s_%s", UUID, name))
 }
 
 func addStack(stack map[string]interface{}, interim *Interim) {
