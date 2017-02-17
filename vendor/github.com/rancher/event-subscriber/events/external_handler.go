@@ -76,7 +76,7 @@ var removeOldHandler = func(name string, apiClient *client.RancherClient) error 
 				return false, err
 			}
 			if handler == nil {
-				return false, fmt.Errorf("Failed to lookup external handler %v.", handler.Id)
+				return false, fmt.Errorf("Failed to lookup external handler %v", handler.Id)
 			}
 			return handler.Transitioning != "yes", nil
 		}
