@@ -243,7 +243,7 @@ func applyVersionToData(orig Interim, version string) (*Interim, error) {
 			s["containers"] = cs
 			s["name"] = strings.ToLower(s["name"].(string))
 			s["stack_name"] = strings.ToLower(s["stack_name"].(string))
-			s["primary_service_name"] = strings.ToLower(s["name"].(string))
+			s["primary_service_name"] = strings.ToLower(s["primary_service_name"].(string))
 		}
 		// add service links
 		s["links"] = modified.ServiceUUIDToServiceLink[s["uuid"].(string)]
