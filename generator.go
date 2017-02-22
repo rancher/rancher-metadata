@@ -234,6 +234,8 @@ func applyVersionToData(orig Interim, version string) (*Interim, error) {
 				}
 			}
 		}
+		// add service links
+		s["links"] = modified.ServiceUUIDToServiceLink[s["uuid"].(string)]
 		switch version {
 		case version1:
 			s["containers"] = cNames
@@ -244,9 +246,24 @@ func applyVersionToData(orig Interim, version string) (*Interim, error) {
 			s["name"] = strings.ToLower(s["name"].(string))
 			s["stack_name"] = strings.ToLower(s["stack_name"].(string))
 			s["primary_service_name"] = strings.ToLower(s["primary_service_name"].(string))
+			if s["sidekicks"] != nil {
+				sidekicks := s["sidekicks"].([]interface{})
+				var lowercased []interface{}
+				for _, sidekick := range sidekicks {
+					lowercased = append(lowercased, strings.ToLower(sidekick.(string)))
+				}
+				s["sidekicks"] = lowercased
+			}
+			if s["links"] != nil {
+				links := s["links"].(map[string]interface{})
+				lowercased := make(map[string]interface{})
+				for key, value := range links {
+					lowercased[strings.ToLower(key)] = value
+				}
+				s["links"] = lowercased
+			}
 		}
-		// add service links
-		s["links"] = modified.ServiceUUIDToServiceLink[s["uuid"].(string)]
+
 		// populate stack/service info on container
 		if cUUIDs != nil {
 			for _, cUUID := range cUUIDs {
