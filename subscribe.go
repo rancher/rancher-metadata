@@ -101,6 +101,7 @@ func (s *Subscriber) configUpdate(event *revents.Event, c *client.RancherClient)
 	i := 0
 	for _, item := range update.Items {
 		if found = item.Name == "metadata-answers"; found {
+			logrus.Info("Update requested for version: %d", item.RequestedVersion)
 			i = s.kicker.Kick()
 			break
 		}
@@ -211,7 +212,8 @@ type ConfigUpdateData struct {
 }
 
 type ConfigUpdateItem struct {
-	Name string
+	Name             string
+	RequestedVersion int
 }
 
 func GenerateDelta(body io.ReadCloser) error {
