@@ -21,6 +21,6 @@ type Interim struct {
 
 type MetadataDelta struct {
 	Version string
-	Data    []map[string]interface{}
+	Data    []byte
 	sync.Mutex
 }

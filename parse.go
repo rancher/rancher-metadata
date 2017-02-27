@@ -1,18 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 
-	"bytes"
 	log "github.com/Sirupsen/logrus"
 )
 
 func ParseAnswers(path string) (out Versions, err error) {
-	var delta *MetadataDelta
 	var v Versions
-	data, err := ioutil.ReadFile(path)
+	var md MetadataDelta
+	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Warn("Failed to find: ", path)
@@ -20,10 +19,14 @@ func ParseAnswers(path string) (out Versions, err error) {
 		}
 		return nil, err
 	}
+	defer f.Close()
 
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.UseNumber()
-	err = dec.Decode(&delta)
+	err = json.NewDecoder(f).Decode(&md)
+	if err != nil {
+		return nil, err
+	}
+
+	delta, err := GenerateDelta(bytes.NewBuffer(md.Data))
 	if err != nil {
 		return v, err
 	}
