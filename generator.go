@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/mitchellh/copystructure"
 	"strings"
 )
 
@@ -10,46 +9,49 @@ const version1 = "2015-07-25"
 const version2 = "2015-12-19"
 const version3 = "2016-07-29"
 
-func GenerateAnswers(delta *MetadataDelta) (Versions, error) {
-	// 1. generate interim data
-	s := len(delta.Data)
-	interim := &Interim{
-		UUIDToService:                   make(map[string]map[string]interface{}, s),
-		UUIDToContainer:                 make(map[string]map[string]interface{}, s),
-		UUIDToStack:                     make(map[string]map[string]interface{}, s),
-		UUIDToHost:                      make(map[string]map[string]interface{}, s),
-		StackUUIDToServicesUUID:         make(map[string][]string, s),
-		ServiceUUIDNameToContainersUUID: make(map[string][]string, s),
-		ContainerUUIDToContainerLink:    make(map[string]map[string]interface{}, s),
-		ServiceUUIDToServiceLink:        make(map[string]map[string]interface{}, s),
-		Networks:                        []interface{}{},
-		Default:                         make(map[string]interface{}, s),
-	}
+var (
+	versionList = []string{version1, version2, version3}
+)
 
-	for _, o := range delta.Data {
-		processMetadataObject(o, interim)
-	}
-	// 2. Generate versions from temp data
-	versions, err := generateVersions(interim)
-	if err != nil {
-		return nil, err
-	}
-	return versions, nil
-}
-
-func generateVersions(interim *Interim) (Versions, error) {
+func GenerateAnswers(data []map[string]interface{}) (Versions, error) {
 	versions := make(map[string]Answers)
-	vs := []string{version1, version2, version3}
-	for _, v := range vs {
-		versionedData, err := applyVersionToData(*interim, v)
-		if err != nil {
+
+	for _, v := range versionList {
+		// 1. generate interim data
+		interim := &Interim{
+			UUIDToService:                   make(map[string]map[string]interface{}),
+			UUIDToContainer:                 make(map[string]map[string]interface{}),
+			UUIDToStack:                     make(map[string]map[string]interface{}),
+			UUIDToHost:                      make(map[string]map[string]interface{}),
+			StackUUIDToServicesUUID:         make(map[string][]string),
+			ServiceUUIDNameToContainersUUID: make(map[string][]string),
+			ContainerUUIDToContainerLink:    make(map[string]map[string]interface{}),
+			ServiceUUIDToServiceLink:        make(map[string]map[string]interface{}),
+			Networks:                        []interface{}{},
+			Default:                         make(map[string]interface{}),
+		}
+
+		for _, o := range data {
+			processMetadataObject(o, interim)
+		}
+		// 2. Generate versions from temp data
+		if err := generateVersions(interim, v, versions); err != nil {
 			return nil, err
 		}
-		addToVersions(versions, v, versionedData)
 	}
+
 	//tag the latest
 	versions["latest"] = versions[version3]
 	return versions, nil
+}
+
+func generateVersions(interim *Interim, version string, versions Versions) error {
+	versionedData, err := applyVersionToData(*interim, version)
+	if err != nil {
+		return err
+	}
+	addToVersions(versions, version, versionedData)
+	return nil
 }
 
 func addToVersions(versions Versions, version string, versionedData *Interim) {
@@ -145,12 +147,7 @@ func addDefaultToAnswers(answers Answers, versionedData *Interim) map[string]int
 	return defaultAnswers
 }
 
-func applyVersionToData(orig Interim, version string) (*Interim, error) {
-	copied, err := copystructure.Copy(orig)
-	if err != nil {
-		return nil, err
-	}
-	modified := copied.(Interim)
+func applyVersionToData(modified Interim, version string) (*Interim, error) {
 	// 1. Process containers
 	for _, c := range modified.UUIDToContainer {
 		switch version {
