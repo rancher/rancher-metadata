@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"compress/flate"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -14,12 +18,24 @@ import (
 	revents "github.com/rancher/event-subscriber/events"
 	"github.com/rancher/go-rancher/v2"
 	"github.com/rancher/rancher-metadata/pkg/kicker"
+	"github.com/ugorji/go/codec"
 )
 
 type ReloadFunc func(versions Versions)
 
-var Delta *MetadataDelta
-var SavedVersion string
+var (
+	Delta        *MetadataDelta
+	SavedVersion string
+	jsonHandle   = &codec.JsonHandle{
+		BasicHandle: codec.BasicHandle{
+			DecodeOptions: codec.DecodeOptions{
+				InternString: true,
+				MapType:      reflect.TypeOf(map[string]interface{}{}),
+			},
+		},
+	}
+	decoder *codec.Decoder
+)
 
 type Subscriber struct {
 	url        string
@@ -32,10 +48,8 @@ type Subscriber struct {
 }
 
 func init() {
-	var data []map[string]interface{}
 	Delta = &MetadataDelta{
 		Version: "0",
-		Data:    data,
 	}
 }
 
@@ -101,7 +115,8 @@ func (s *Subscriber) configUpdate(event *revents.Event, c *client.RancherClient)
 	i := 0
 	for _, item := range update.Items {
 		if found = item.Name == "metadata-answers"; found {
-			logrus.Info("Update requested for version: %d", item.RequestedVersion)
+			logrus.Infof("Update requested for version: %d", item.RequestedVersion)
+			SetRequestedVersion(strconv.Itoa(item.RequestedVersion))
 			i = s.kicker.Kick()
 			break
 		}
@@ -139,7 +154,7 @@ func (s *Subscriber) saveDeltaToFile() error {
 }
 
 func (s *Subscriber) downloadAndReload() error {
-	url := s.url + "/configcontent/metadata-answers?client=v2"
+	url := s.url + "/configcontent/metadata-answers?client=v2&requestedVersion=" + GetRequestedVersion()
 	// 1. Download meta
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -161,7 +176,7 @@ func (s *Subscriber) downloadAndReload() error {
 
 	// 2. Decode the delta
 	logrus.Infof("Generating and reloading answers")
-	err = GenerateDelta(resp.Body)
+	delta, err := GenerateDelta(resp.Body)
 	if err != nil {
 		logrus.Errorf("Failed to decode delta")
 		return err
@@ -169,7 +184,7 @@ func (s *Subscriber) downloadAndReload() error {
 
 	logrus.Infof("Generating answers")
 	// 3. Geneate answers
-	versions, err := GenerateAnswers(Delta)
+	versions, err := GenerateAnswers(delta)
 	if err != nil {
 		logrus.Errorf("Failed to generate answers")
 		return err
@@ -216,18 +231,28 @@ type ConfigUpdateItem struct {
 	RequestedVersion int
 }
 
-func GenerateDelta(body io.ReadCloser) error {
-	dec := json.NewDecoder(body)
-	dec.UseNumber()
+func GenerateDelta(body io.Reader) ([]map[string]interface{}, error) {
+	content, err := ioutil.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+
+	r := flate.NewReader(bytes.NewBuffer(content))
+	if decoder == nil {
+		decoder = codec.NewDecoder(r, jsonHandle)
+	} else {
+		decoder.Reset(r)
+	}
+
 	var data []map[string]interface{}
 	var version string
 	for {
 		var o map[string]interface{}
-		err := dec.Decode(&o)
+		err := decoder.Decode(&o)
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return err
+			return nil, err
 		} else {
 			data = append(data, o)
 			kind := o["metadata_kind"]
@@ -236,11 +261,11 @@ func GenerateDelta(body io.ReadCloser) error {
 			}
 		}
 	}
-	reloadDelta(version, data)
-	return nil
+	reloadDelta(version, content)
+	return data, nil
 }
 
-func reloadDelta(version string, data []map[string]interface{}) {
+func reloadDelta(version string, data []byte) {
 	Delta.Lock()
 	defer Delta.Unlock()
 	Delta.Version = version
