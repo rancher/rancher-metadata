@@ -32,7 +32,11 @@ func GenerateAnswers(data []map[string]interface{}) (Versions, error) {
 		}
 
 		for _, o := range data {
-			processMetadataObject(o, interim)
+			no := make(map[string]interface{}, len(o))
+			for k, v := range o {
+				no[k] = v
+			}
+			processMetadataObject(no, interim)
 		}
 		// 2. Generate versions from temp data
 		if err := generateVersions(interim, v, versions); err != nil {
