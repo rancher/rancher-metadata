@@ -139,6 +139,13 @@ func appMain(ctx *cli.Context) error {
 		ctx.GlobalBool("xff"),
 	)
 
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			sc.versionCond.Broadcast()
+		}
+	}()
+
 	if ctx.Bool("subscribe") {
 		logrus.Info("Subscribing to events")
 		s := NewSubscriber(os.Getenv("CATTLE_URL"),
