@@ -75,7 +75,14 @@ func addClientToAnswers(answers Answers, defaultAnswers map[string]interface{}, 
 		self["container"] = c
 		if c["stack_uuid"] != nil {
 			self["stack"] = versionedData.UUIDToStack[c["stack_uuid"].(string)]
-			self["service"] = versionedData.UUIDToService[getServiceUUID(c["service_uuid"].(string), c["service_name"].(string))]
+			service := versionedData.UUIDToService[getServiceUUID(c["service_uuid"].(string), c["service_name"].(string))]
+			selfService := make(map[string]interface{})
+			// to exclude token from service
+			for k, v := range service {
+				selfService[k] = v
+			}
+			service["token"] = nil
+			self["service"] = selfService
 		}
 		if c["host_uuid"] != nil {
 			self["host"] = versionedData.UUIDToHost[c["host_uuid"].(string)]
