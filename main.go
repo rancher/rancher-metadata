@@ -213,7 +213,8 @@ func (sc *ServerConfig) SetAnswers(versions Versions) {
 
 func (sc *ServerConfig) lookupAnswer(wait bool, oldValue, version string, ip string, path []string, maxWait time.Duration) (interface{}, bool) {
 	if !wait {
-		return sc.versions.Matching(version, ip, path)
+		v := sc.answers()
+		return v.Matching(version, ip, path)
 	}
 
 	if maxWait == time.Duration(0) {
@@ -226,11 +227,9 @@ func (sc *ServerConfig) lookupAnswer(wait bool, oldValue, version string, ip str
 
 	start := time.Now()
 
-	sc.Lock()
-	defer sc.Unlock()
-
 	for {
-		val, ok := sc.versions.Matching(version, ip, path)
+		v := sc.answers()
+		val, ok := v.Matching(version, ip, path)
 		if time.Now().Sub(start) > maxWait {
 			return val, ok
 		}
@@ -238,7 +237,9 @@ func (sc *ServerConfig) lookupAnswer(wait bool, oldValue, version string, ip str
 			return val, ok
 		}
 
+		sc.versionCond.L.Lock()
 		sc.versionCond.Wait()
+		sc.versionCond.L.Unlock()
 	}
 }
 
