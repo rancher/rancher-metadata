@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -34,8 +35,13 @@ var (
 			},
 		},
 	}
-	decoder *codec.Decoder
+	decoder = &MetadataDecoder{}
 )
+
+type MetadataDecoder struct {
+	decoder *codec.Decoder
+	sync.Mutex
+}
 
 type Subscriber struct {
 	url        string
@@ -238,17 +244,23 @@ func GenerateDelta(body io.Reader) ([]map[string]interface{}, error) {
 	}
 
 	r := flate.NewReader(bytes.NewBuffer(content))
-	if decoder == nil {
-		decoder = codec.NewDecoder(r, jsonHandle)
+
+	defer r.Close()
+
+	decoder.Lock()
+	defer decoder.Unlock()
+
+	if decoder.decoder == nil {
+		decoder.decoder = codec.NewDecoder(r, jsonHandle)
 	} else {
-		decoder.Reset(r)
+		decoder.decoder.Reset(r)
 	}
 
 	var data []map[string]interface{}
 	var version string
 	for {
 		var o map[string]interface{}
-		err := decoder.Decode(&o)
+		err := decoder.decoder.Decode(&o)
 		if err == io.EOF {
 			break
 		} else if err != nil {

@@ -139,6 +139,9 @@ func appMain(ctx *cli.Context) error {
 		ctx.GlobalBool("xff"),
 	)
 
+	// Start the server
+	sc.Start()
+
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
@@ -162,8 +165,8 @@ func appMain(ctx *cli.Context) error {
 		logrus.Info(http.ListenAndServe(":6060", nil))
 	}()
 
-	// Start the server
-	sc.Start()
+	// Run the server
+	sc.RunServer()
 
 	return nil
 }
@@ -190,12 +193,13 @@ func NewServerConfig(answersFilePath, listen, listenReload string, enableXff boo
 
 func (sc *ServerConfig) Start() {
 	logrus.Infof("Starting rancher-metadata %s", VERSION)
-	err := sc.loadAnswers()
-	if err != nil {
-		logrus.Fatal("Cannot startup without a valid Answers file")
+	// on the startup, read answers from file (if present)so there is no delay
+	// in serving to the client till the delta update from subscriber
+	if _, err := os.Stat(sc.answersFilePath); err == nil {
+		if err = sc.loadAnswersFromFile(sc.answersFilePath); err != nil {
+			logrus.Fatal("Failed loading data from file")
+		}
 	}
-
-	sc.RunServer()
 }
 
 func (sc *ServerConfig) answers() Versions {
@@ -243,12 +247,7 @@ func (sc *ServerConfig) lookupAnswer(wait bool, oldValue, version string, ip str
 	}
 }
 
-func (sc *ServerConfig) loadAnswers() error {
-	_, err := sc.loadAnswersFromFile(sc.answersFilePath)
-	return err
-}
-
-func (sc *ServerConfig) loadAnswersFromFile(file string) (Versions, error) {
+func (sc *ServerConfig) loadAnswersFromFile(file string) error {
 	logrus.Infof("Loading answers")
 	neu, err := ParseAnswers(file)
 	if err == nil {
@@ -258,7 +257,7 @@ func (sc *ServerConfig) loadAnswersFromFile(file string) (Versions, error) {
 		logrus.Errorf("Failed to load answers from file: %v", err)
 	}
 
-	return neu, err
+	return err
 }
 
 func (sc *ServerConfig) watchSignals() {
@@ -274,7 +273,7 @@ func (sc *ServerConfig) watchSignals() {
 
 	go func() {
 		for resp := range sc.reloadChan {
-			err := sc.loadAnswers()
+			err := sc.loadAnswersFromFile(sc.answersFilePath)
 			if resp != nil {
 				resp <- err
 			}
