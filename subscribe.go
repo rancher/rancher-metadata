@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/juju/ratelimit"
 	"github.com/mitchellh/mapstructure"
 	revents "github.com/rancher/event-subscriber/events"
 	"github.com/rancher/go-rancher/v2"
@@ -44,13 +45,15 @@ type MetadataDecoder struct {
 }
 
 type Subscriber struct {
-	url        string
-	accessKey  string
-	secretKey  string
-	reload     ReloadFunc
-	answerFile string
-	client     *http.Client
-	kicker     *kicker.Kicker
+	url            string
+	accessKey      string
+	secretKey      string
+	reload         ReloadFunc
+	answerFile     string
+	client         *http.Client
+	kicker         *kicker.Kicker
+	reloadInterval int64
+	limiter        *ratelimit.Bucket
 }
 
 func init() {
@@ -59,14 +62,16 @@ func init() {
 	}
 }
 
-func NewSubscriber(url, accessKey, secretKey, answerFile string, reload ReloadFunc) *Subscriber {
+func NewSubscriber(url, accessKey, secretKey, answerFile string, reloadInterval int64, reload ReloadFunc) *Subscriber {
 	s := &Subscriber{
-		url:        url,
-		accessKey:  accessKey,
-		secretKey:  secretKey,
-		reload:     reload,
-		answerFile: answerFile,
-		client:     &http.Client{},
+		url:            url,
+		accessKey:      accessKey,
+		secretKey:      secretKey,
+		reload:         reload,
+		answerFile:     answerFile,
+		client:         &http.Client{},
+		reloadInterval: reloadInterval,
+		limiter:        ratelimit.NewBucketWithQuantum(time.Duration(reloadInterval)*time.Millisecond, 1.0, 1),
 	}
 	s.kicker = kicker.New(func() {
 		if err := s.downloadAndReload(); err != nil {
@@ -160,6 +165,7 @@ func (s *Subscriber) saveDeltaToFile() error {
 }
 
 func (s *Subscriber) downloadAndReload() error {
+	s.limiter.WaitMaxDuration(1, time.Duration(s.reloadInterval)*time.Millisecond)
 	url := s.url + "/configcontent/metadata-answers?client=v2&requestedVersion=" + GetRequestedVersion()
 	// 1. Download meta
 	req, err := http.NewRequest("GET", url, nil)

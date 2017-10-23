@@ -22,7 +22,6 @@ import (
 	"github.com/golang/gddo/httputil"
 	"github.com/gorilla/mux"
 	yaml "gopkg.in/yaml.v2"
-	_ "net/http/pprof"
 )
 
 const (
@@ -105,6 +104,11 @@ func getCliApp() *cli.App {
 			Name:  "subscribe",
 			Usage: "Subscribe to Rancher events",
 		},
+		cli.Int64Flag{
+			Name:  "reload-interval-limit",
+			Usage: "Limits reload to 1 per interval (milliseconds)",
+			Value: 1000,
+		},
 	}
 
 	return app
@@ -155,6 +159,7 @@ func appMain(ctx *cli.Context) error {
 			os.Getenv("CATTLE_ACCESS_KEY"),
 			os.Getenv("CATTLE_SECRET_KEY"),
 			ctx.String("answers"),
+			ctx.Int64("reload-interval-limit"),
 			sc.SetAnswers)
 		if err := s.Subscribe(); err != nil {
 			logrus.Fatal("Failed to subscribe", err)
