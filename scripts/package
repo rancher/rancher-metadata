@@ -9,7 +9,10 @@ package() {
   arch=$2
   image_name="metadata"
   binary_name="rancher-metadata"
-  
+  if [ "$WINDOWS_DOCKER_HOST" == "" -a "$os" == "windows" ]; then
+      echo "WINDOWS_DOCKER_HOST is not set, skip packaging Windows image"
+      return
+  fi
   [ "$os"   == "windows" ] && binary_name="${binary_name}.exe"
   [ "$os"   != "linux" ] && image_name="${image_name}-${os}"
   [ "$arch" != "amd64" ] && suffix="${suffix}_${arch}"
