@@ -16,13 +16,13 @@ package() {
   [ "$os"   == "windows" ] && binary_name="${binary_name}.exe"
   [ "$os"   != "linux" ] && image_name="${image_name}-${os}"
   [ "$arch" != "amd64" ] && suffix="${suffix}_${arch}"
-  
+
   if $(echo ${tag} | grep -q dirty); then
       tag=dev
   fi
-  tag="${VERSION}${suffix}"
+  tag=${VERSION}${suffix}
 
-  if [ ! -d "package/$os/$arch" ]; then 
+  if [ ! -d "package/$os/$arch" ]; then
       echo "Directory package/$os/$arch not exist, skip package"
       return
   fi
