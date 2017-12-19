@@ -34,6 +34,7 @@ type Subscriber struct {
 	ctx                  *logrus.Entry
 	reloadInterval       int64
 	limiter              *ratelimit.Bucket
+	stopCh               chan struct{}
 }
 
 func formatUrl(url string) string {
@@ -57,6 +58,7 @@ func NewSubscriber(url string, accessKey string, secretKey string, generator *co
 		ctx:            logrus.WithFields(logrus.Fields{"url": formatUrl(url), "access_key": accessKey}),
 		reloadInterval: reloadInterval,
 		limiter:        ratelimit.NewBucketWithQuantum(time.Duration(reloadInterval)*time.Millisecond, 1.0, 1),
+		stopCh:         make(chan struct{}),
 	}
 	s.kicker = kicker.New(func() {
 		if err := s.downloadAndReload(); err != nil {
@@ -101,13 +103,24 @@ func (s *Subscriber) Subscribe() error {
 			if err := s.router.RunWithWorkerPool(sp); err != nil {
 				s.ctx.Errorf("Exiting subscriber: %v", err)
 			}
-			time.Sleep(time.Second)
+			select {
+			case <-s.stopCh:
+				return
+			default:
+				time.Sleep(time.Second)
+			}
 		}
 	}()
 
 	go func() {
 		for t := range time.Tick(30 * time.Second) {
 			s.generator.SaveToFile(t)
+			select {
+			case <-s.stopCh:
+				return
+			default:
+				time.Sleep(time.Second)
+			}
 		}
 	}()
 
@@ -115,8 +128,7 @@ func (s *Subscriber) Subscribe() error {
 }
 
 func (s *Subscriber) Unsubscribe() {
-	// TODO clean way to unsubscirbe
-	// s.router.Stop()
+	close(s.stopCh)
 }
 
 func (s *Subscriber) noOp(event *revents.Event, c *client.RancherClient) error {
