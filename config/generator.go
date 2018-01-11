@@ -1,22 +1,80 @@
-package main
+package config
 
 import (
+	"bytes"
+	"compress/flate"
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"reflect"
 	"strings"
+	"sync"
+	"time"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/ugorji/go/codec"
 )
 
-const version1 = "2015-07-25"
-const version2 = "2015-12-19"
-const version3 = "2016-07-29"
+type Generator struct {
+	supportedVersions []string
+	local             bool
+	delta             *MetadataDelta
+	savedVersion      string
+	jsonHandle        *codec.JsonHandle
+	decoder           *MetadataDecoder
+	answersFilePath   string
+}
 
-var (
-	versionList = []string{version1, version2, version3}
-)
+type MetadataDelta struct {
+	Version string
+	Data    []byte
+	sync.Mutex
+}
 
-func GenerateAnswers(data []map[string]interface{}) (Versions, error) {
+type MetadataDecoder struct {
+	decoder *codec.Decoder
+	sync.Mutex
+}
+
+func NewGenerator(local bool, answersFilePath string) *Generator {
+	var generator *Generator
+	if local {
+		generator = &Generator{
+			supportedVersions: []string{METADATA_VERSION1, METADATA_VERSION2, METADATA_VERSION3},
+			local:             true,
+		}
+	} else {
+		generator = &Generator{
+			supportedVersions: []string{METADATA_VERSION3},
+			local:             false,
+		}
+	}
+
+	generator.jsonHandle = &codec.JsonHandle{
+		BasicHandle: codec.BasicHandle{
+			DecodeOptions: codec.DecodeOptions{
+				InternString: true,
+				MapType:      reflect.TypeOf(map[string]interface{}{}),
+			},
+		},
+	}
+
+	generator.decoder = &MetadataDecoder{}
+	generator.delta = &MetadataDelta{
+		Version: "0",
+	}
+	generator.answersFilePath = answersFilePath
+
+	return generator
+}
+
+func (g *Generator) GenerateAnswers(data []map[string]interface{}) (Versions, []Credential, error) {
 	versions := make(map[string]Answers)
 
-	for _, v := range versionList {
+	var creds []Credential
+	for _, v := range g.supportedVersions {
 		// 1. generate interim data
 		interim := &Interim{
 			UUIDToService:                   make(map[string]map[string]interface{}),
@@ -29,6 +87,8 @@ func GenerateAnswers(data []map[string]interface{}) (Versions, error) {
 			ServiceUUIDToServiceLink:        make(map[string]map[string]interface{}),
 			Networks:                        []interface{}{},
 			Default:                         make(map[string]interface{}),
+			Credentials:                     []Credential{},
+			Environment:                     make(map[string]interface{}),
 		}
 
 		for _, o := range data {
@@ -38,30 +98,33 @@ func GenerateAnswers(data []map[string]interface{}) (Versions, error) {
 			}
 			processMetadataObject(no, interim)
 		}
+		creds = interim.Credentials
 		// 2. Generate versions from temp data
-		if err := generateVersions(interim, v, versions); err != nil {
-			return nil, err
+		if err := g.generateVersions(interim, v, versions); err != nil {
+			return nil, nil, err
 		}
 	}
 
 	//tag the latest
-	versions["latest"] = versions[version3]
-	return versions, nil
+	versions[LATEST_KEY] = versions[METADATA_VERSION3]
+	return versions, creds, nil
 }
 
-func generateVersions(interim *Interim, version string, versions Versions) error {
+func (g *Generator) generateVersions(interim *Interim, version string, versions Versions) error {
 	versionedData, err := applyVersionToData(*interim, version)
 	if err != nil {
 		return err
 	}
-	addToVersions(versions, version, versionedData)
+	g.addToVersions(versions, version, versionedData)
 	return nil
 }
 
-func addToVersions(versions Versions, version string, versionedData *Interim) {
+func (g *Generator) addToVersions(versions Versions, version string, versionedData *Interim) {
 	answers := make(map[string]interface{})
-	defaultAnswers := addDefaultToAnswers(answers, versionedData)
-	addClientToAnswers(answers, defaultAnswers, versionedData)
+	defaultAnswers := g.addDefaultToAnswers(answers, versionedData)
+	if g.local {
+		addClientToAnswers(answers, defaultAnswers, versionedData)
+	}
 	versions[version] = answers
 }
 
@@ -102,7 +165,7 @@ func mergeDefaults(clientAnswers map[string]interface{}, defaultAnswers map[stri
 	}
 }
 
-func addDefaultToAnswers(answers Answers, versionedData *Interim) map[string]interface{} {
+func (g *Generator) addDefaultToAnswers(answers Answers, versionedData *Interim) map[string]interface{} {
 	defaultAnswers := make(map[string]interface{})
 	var containers []interface{}
 	for _, c := range versionedData.UUIDToContainer {
@@ -145,15 +208,22 @@ func addDefaultToAnswers(answers Answers, versionedData *Interim) map[string]int
 		defaultAnswers["version"] = val
 	}
 
-	if selfVal, ok := versionedData.Default["self"]; ok {
-		self := selfVal.(map[string]interface{})
-		if hostVal, ok := self["host"]; ok {
-			host := hostVal.(map[string]interface{})
-			self["host"] = versionedData.UUIDToHost[host["uuid"].(string)]
+	if g.local {
+		if selfVal, ok := versionedData.Default["self"]; ok {
+			self := selfVal.(map[string]interface{})
+			if hostVal, ok := self["host"]; ok {
+				host := hostVal.(map[string]interface{})
+				self["host"] = versionedData.UUIDToHost[host["uuid"].(string)]
+			}
+			defaultAnswers["self"] = self
 		}
-		defaultAnswers["self"] = self
 	}
-
+	for key, value := range versionedData.Environment {
+		if key == "metadata_kind" {
+			continue
+		}
+		defaultAnswers[key] = value
+	}
 	answers[DEFAULT_KEY] = defaultAnswers
 	return defaultAnswers
 }
@@ -162,7 +232,7 @@ func applyVersionToData(modified Interim, version string) (*Interim, error) {
 	// 1. Process containers
 	for _, c := range modified.UUIDToContainer {
 		switch version {
-		case version3:
+		case METADATA_VERSION3:
 			if c["name"] != nil {
 				c["name"] = strings.ToLower(c["name"].(string))
 			}
@@ -245,11 +315,11 @@ func applyVersionToData(modified Interim, version string) (*Interim, error) {
 		// add service links
 		s["links"] = modified.ServiceUUIDToServiceLink[s["uuid"].(string)]
 		switch version {
-		case version1:
+		case METADATA_VERSION1:
 			s["containers"] = cNames
-		case version2:
+		case METADATA_VERSION2:
 			s["containers"] = cs
-		case version3:
+		case METADATA_VERSION3:
 			s["containers"] = cs
 			s["name"] = strings.ToLower(s["name"].(string))
 			s["stack_name"] = strings.ToLower(s["stack_name"].(string))
@@ -299,11 +369,11 @@ func applyVersionToData(modified Interim, version string) (*Interim, error) {
 			}
 		}
 		switch version {
-		case version1:
+		case METADATA_VERSION1:
 			s["services"] = svcsNames
-		case version2:
+		case METADATA_VERSION2:
 			s["services"] = svcs
-		case version3:
+		case METADATA_VERSION3:
 			s["services"] = svcs
 			s["name"] = strings.ToLower(s["name"].(string))
 		}
@@ -312,7 +382,7 @@ func applyVersionToData(modified Interim, version string) (*Interim, error) {
 	// 4. process hosts
 	for _, h := range modified.UUIDToHost {
 		switch version {
-		case version3:
+		case METADATA_VERSION3:
 			delete(h, "hostId")
 		}
 	}
@@ -341,8 +411,25 @@ func processMetadataObject(o map[string]interface{}, interim *Interim) {
 			addServiceLink(o, interim)
 		case "service":
 			addService(o, interim)
+		case "environment":
+			addEnvironment(o, interim)
+		case "credential":
+			addCredential(o, interim)
 		}
 	}
+}
+
+func addCredential(credData map[string]interface{}, interim *Interim) {
+	cred := Credential{
+		URL:         credData["url"].(string),
+		PublicValue: credData["public_value"].(string),
+		SecretValue: credData["secret_value"].(string),
+	}
+	interim.Credentials = append(interim.Credentials, cred)
+}
+
+func addEnvironment(env map[string]interface{}, interim *Interim) {
+	interim.Environment = env
 }
 
 func addContainer(container map[string]interface{}, interim *Interim) {
@@ -405,4 +492,155 @@ func addHost(host map[string]interface{}, interim *Interim) {
 
 func addDefault(def map[string]interface{}, interim *Interim) {
 	interim.Default = def
+}
+
+func (g *Generator) GenerateDelta(body io.Reader) ([]map[string]interface{}, string, error) {
+	content, err := ioutil.ReadAll(body)
+	if err != nil {
+		return nil, "", err
+	}
+
+	r := flate.NewReader(bytes.NewBuffer(content))
+
+	defer r.Close()
+
+	g.decoder.Lock()
+	defer g.decoder.Unlock()
+
+	if g.decoder.decoder == nil {
+		g.decoder.decoder = codec.NewDecoder(r, g.jsonHandle)
+	} else {
+		g.decoder.decoder.Reset(r)
+	}
+
+	var data []map[string]interface{}
+	var version string
+	for {
+		var o map[string]interface{}
+		err := g.decoder.decoder.Decode(&o)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, "", err
+		} else {
+			data = append(data, o)
+			kind := o["metadata_kind"]
+			if kind == "defaultData" {
+				version = o["version"].(string)
+			}
+		}
+	}
+	g.reloadDelta(version, content)
+	return data, version, nil
+}
+
+func (g *Generator) reloadDelta(version string, data []byte) {
+	g.delta.Lock()
+	defer g.delta.Unlock()
+	g.delta.Version = version
+	g.delta.Data = data
+}
+
+func (g *Generator) SaveToFile(t time.Time) {
+	g.delta.Lock()
+	defer g.delta.Unlock()
+	currentVersion := g.delta.Version
+	if g.savedVersion != g.delta.Version && len(g.delta.Data) > 0 {
+		err := g.saveDeltaToFile()
+		if err != nil {
+			logrus.Errorf("Failed to save delta to file: [%v]", err)
+		} else {
+			logrus.Debugf("Saved delta to file at [%v]", t)
+			g.savedVersion = currentVersion
+		}
+	}
+}
+
+func (g *Generator) saveDeltaToFile() error {
+	tempFile := g.answersFilePath + ".temp"
+	out, err := os.Create(tempFile)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		out.Close()
+		os.Remove(tempFile)
+	}()
+
+	err = json.NewEncoder(out).Encode(g.delta)
+	if err != nil {
+		return err
+	}
+
+	os.Rename(tempFile, g.answersFilePath)
+	return nil
+}
+
+func (g *Generator) readVersionsFromFile() (Versions, []Credential, error) {
+	var v Versions
+	var md MetadataDelta
+	f, err := os.Open(g.answersFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			logrus.Warn("Failed to find: ", g.answersFilePath)
+			return v, nil, nil
+		}
+		return nil, nil, err
+	}
+	defer f.Close()
+
+	err = json.NewDecoder(f).Decode(&md)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	delta, _, err := g.GenerateDelta(bytes.NewBuffer(md.Data))
+	if err != nil {
+		return v, nil, err
+	}
+
+	v, creds, err := g.GenerateAnswers(delta)
+
+	return v, creds, err
+}
+
+func (g *Generator) LoadVersionsFromFile(ignoreIfMissing bool) (Versions, []Credential, error) {
+	logrus.Infof("Loading answers from file %s", g.answersFilePath)
+	if _, err := os.Stat(g.answersFilePath); err == nil {
+		versions, creds, err := g.readVersionsFromFile()
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to load answers from file %s: %v", g.answersFilePath, err)
+		}
+		return versions, creds, nil
+	} else {
+		if ignoreIfMissing {
+			return nil, nil, nil
+		}
+		return nil, nil, fmt.Errorf("Failed to load answers from file %s: %v", g.answersFilePath, err)
+	}
+}
+
+func MergeVersions(local Versions, external []Versions, version string) Versions {
+	if len(local.Versions()) == 0 {
+		return local
+	}
+	var environments []interface{}
+	for _, v := range external {
+		if _, ok := v[METADATA_VERSION3][DEFAULT_KEY]; ok {
+			externalData := v[METADATA_VERSION3][DEFAULT_KEY].(map[string]interface{})
+			environments = append(environments, externalData)
+		}
+	}
+	for _, v := range SUPPORTED_VERSIONS {
+		for key, value := range local[v] {
+			localData := value.(map[string]interface{})
+			if v == METADATA_VERSION3 {
+				localData[ENVIRONMENT_KEY] = environments
+			}
+			localData[VERSION_KEY] = version
+			local[v][key] = localData
+		}
+	}
+
+	return local
 }

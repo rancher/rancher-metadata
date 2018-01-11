@@ -21,6 +21,8 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/golang/gddo/httputil"
 	"github.com/gorilla/mux"
+	"github.com/rancher/rancher-metadata/config"
+	"github.com/rancher/rancher-metadata/server"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -28,9 +30,6 @@ const (
 	ContentText = 1
 	ContentJSON = 2
 	ContentYAML = 3
-
-	// The top-level key in the JSON for the default (not client-specific answers)
-	DEFAULT_KEY = "default"
 )
 
 var (
@@ -38,22 +37,20 @@ var (
 	// A key to check for magic traversing of arrays by a string field in them
 	// For example, given: { things: [ {name: 'asdf', stuff: 42}, {name: 'zxcv', stuff: 43} ] }
 	// Both ../things/0/stuff and ../things/asdf/stuff will return 42 because 'asdf' matched the 'anme' field of one of the 'things'.
-	MAGIC_ARRAY_KEYS = []string{"name", "uuid"}
 )
 
 // ServerConfig specifies the configuration for the metadata server
 type ServerConfig struct {
 	sync.Mutex
-	versionCond *sync.Cond
 
-	answersFilePath string
-	listen          string
-	listenReload    string
-	enableXff       bool
+	metadataController *server.MetadataController
+
+	listen       string
+	listenReload string
+	enableXff    bool
 
 	router       *mux.Router
 	reloadRouter *mux.Router
-	versions     Versions
 	reloadChan   chan chan error
 }
 
@@ -137,38 +134,17 @@ func appMain(ctx *cli.Context) error {
 	}
 
 	sc := NewServerConfig(
-		ctx.GlobalString("answers"),
 		ctx.GlobalString("listen"),
 		ctx.GlobalString("listenReload"),
 		ctx.GlobalBool("xff"),
+		ctx.GlobalBool("subscribe"),
+		ctx.GlobalString("answers"),
+		ctx.Int64("reload-interval-limit"),
 	)
 
-	// Start the server
-	sc.Start()
-
-	go func() {
-		for {
-			time.Sleep(5 * time.Second)
-			sc.versionCond.Broadcast()
-		}
-	}()
-
-	if ctx.Bool("subscribe") {
-		logrus.Info("Subscribing to events")
-		s := NewSubscriber(os.Getenv("CATTLE_URL"),
-			os.Getenv("CATTLE_ACCESS_KEY"),
-			os.Getenv("CATTLE_SECRET_KEY"),
-			ctx.String("answers"),
-			ctx.Int64("reload-interval-limit"),
-			sc.SetAnswers)
-		if err := s.Subscribe(); err != nil {
-			logrus.Fatal("Failed to subscribe", err)
-		}
+	if err := sc.StartServer(); err != nil {
+		return err
 	}
-
-	go func() {
-		logrus.Info(http.ListenAndServe(":6060", nil))
-	}()
 
 	// Run the server
 	sc.RunServer()
@@ -176,93 +152,29 @@ func appMain(ctx *cli.Context) error {
 	return nil
 }
 
-func NewServerConfig(answersFilePath, listen, listenReload string, enableXff bool) *ServerConfig {
+func (sc *ServerConfig) StartServer() error {
+	if err := sc.metadataController.Start(); err != nil {
+		return err
+	}
+	go func() {
+		logrus.Info(http.ListenAndServe(":6060", nil))
+	}()
+	return nil
+}
+
+func NewServerConfig(listen, listenReload string, enableXff bool, subscribe bool, answers string, reloadInterval int64) *ServerConfig {
 	router := mux.NewRouter()
 	reloadRouter := mux.NewRouter()
 	reloadChan := make(chan chan error)
-	answers := (Versions)(nil)
-	sc := &ServerConfig{
-		answersFilePath: answersFilePath,
-		listen:          listen,
-		listenReload:    listenReload,
-		enableXff:       enableXff,
-		router:          router,
-		reloadRouter:    reloadRouter,
-		versions:        answers,
-		reloadChan:      reloadChan,
+	return &ServerConfig{
+		listen:             listen,
+		listenReload:       listenReload,
+		enableXff:          enableXff,
+		router:             router,
+		reloadRouter:       reloadRouter,
+		reloadChan:         reloadChan,
+		metadataController: server.NewMetadataController(subscribe, answers, reloadInterval),
 	}
-	sc.versionCond = sync.NewCond(sc)
-
-	return sc
-}
-
-func (sc *ServerConfig) Start() {
-	logrus.Infof("Starting rancher-metadata %s", VERSION)
-	// on the startup, read answers from file (if present)so there is no delay
-	// in serving to the client till the delta update from subscriber
-	if _, err := os.Stat(sc.answersFilePath); err == nil {
-		if err = sc.loadAnswersFromFile(sc.answersFilePath); err != nil {
-			logrus.Fatal("Failed loading data from file")
-		}
-	}
-}
-
-func (sc *ServerConfig) answers() Versions {
-	sc.Lock()
-	defer sc.Unlock()
-	return sc.versions
-}
-
-func (sc *ServerConfig) SetAnswers(versions Versions) {
-	sc.Lock()
-	defer sc.Unlock()
-	sc.versions = versions
-	sc.versionCond.Broadcast()
-}
-
-func (sc *ServerConfig) lookupAnswer(wait bool, oldValue, version string, ip string, path []string, maxWait time.Duration) (interface{}, bool) {
-	if !wait {
-		v := sc.answers()
-		return v.Matching(version, ip, path)
-	}
-
-	if maxWait == time.Duration(0) {
-		maxWait = time.Minute
-	}
-
-	if maxWait > 2*time.Minute {
-		maxWait = 2 * time.Minute
-	}
-
-	start := time.Now()
-
-	for {
-		v := sc.answers()
-		val, ok := v.Matching(version, ip, path)
-		if time.Now().Sub(start) > maxWait {
-			return val, ok
-		}
-		if ok && fmt.Sprint(val) != oldValue {
-			return val, ok
-		}
-
-		sc.versionCond.L.Lock()
-		sc.versionCond.Wait()
-		sc.versionCond.L.Unlock()
-	}
-}
-
-func (sc *ServerConfig) loadAnswersFromFile(file string) error {
-	logrus.Infof("Loading answers")
-	neu, err := ParseAnswers(file)
-	if err == nil {
-		sc.SetAnswers(neu)
-		logrus.Infof("Loaded answers from file")
-	} else {
-		logrus.Errorf("Failed to load answers from file: %v", err)
-	}
-
-	return err
 }
 
 func (sc *ServerConfig) watchSignals() {
@@ -278,7 +190,7 @@ func (sc *ServerConfig) watchSignals() {
 
 	go func() {
 		for resp := range sc.reloadChan {
-			err := sc.loadAnswersFromFile(sc.answersFilePath)
+			err := sc.metadataController.LoadVersionsFromFile()
 			if resp != nil {
 				resp <- err
 			}
@@ -296,7 +208,6 @@ func (sc *ServerConfig) watchHttp() {
 }
 
 func (sc *ServerConfig) RunServer() {
-
 	sc.watchSignals()
 	sc.watchHttp()
 
@@ -360,7 +271,7 @@ func (sc *ServerConfig) root(w http.ResponseWriter, req *http.Request) {
 
 	logrus.WithFields(logrus.Fields{"client": sc.requestIp(req), "version": "root"}).Debugf("OK: %s", "/")
 
-	answers := sc.answers()
+	answers := sc.metadataController.GetVersions()
 
 	m := make(map[string]interface{})
 	for _, k := range answers.Versions() {
@@ -397,7 +308,7 @@ func (sc *ServerConfig) metadata(w http.ResponseWriter, req *http.Request) {
 	oldValue := vars["oldValue"]
 	maxWait, _ := strconv.Atoi(req.URL.Query().Get("maxWait"))
 
-	answers := sc.answers()
+	answers := sc.metadataController.GetVersions()
 	_, ok := answers[version]
 	if !ok {
 		// If a `latest` key is not provided, pick the ASCII-betically highest version and call it that.
@@ -436,7 +347,7 @@ func (sc *ServerConfig) metadata(w http.ResponseWriter, req *http.Request) {
 		"wait":     wait,
 		"oldValue": oldValue,
 		"maxWait":  maxWait}).Debugf("Searching for: %s", displayKey)
-	val, ok := sc.lookupAnswer(wait, oldValue, version, clientIp, pathSegments, time.Duration(maxWait)*time.Second)
+	val, ok := sc.metadataController.LookupAnswer(wait, oldValue, version, clientIp, pathSegments, time.Duration(maxWait)*time.Second)
 
 	if ok {
 		logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Debugf("OK: %s", displayKey)
@@ -532,7 +443,7 @@ func respondText(w http.ResponseWriter, req *http.Request, val interface{}) {
 
 			if isMap {
 				// If the child is a map and has a "name" property, show index=name ("0=foo")
-				for _, magicKey := range MAGIC_ARRAY_KEYS {
+				for _, magicKey := range config.MAGIC_ARRAY_KEYS {
 					name, ok := vvMap[magicKey]
 					if ok {
 						fmt.Fprintf(w, "%d=%s\n", k, url.QueryEscape(name.(string)))
