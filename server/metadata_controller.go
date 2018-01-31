@@ -168,7 +168,9 @@ func (mc *MetadataController) reloadVersions() {
 		if server.local {
 			continue
 		}
-		if _, ok := toAdd[key]; !ok {
+		if val, ok := toAdd[key]; !ok {
+			toRemove = append(toRemove, server.accessKey)
+		} else if server.URL != val.URL {
 			toRemove = append(toRemove, server.accessKey)
 		}
 	}
