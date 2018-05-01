@@ -17,10 +17,10 @@ package() {
   [ "$os"   != "linux" ] && image_name="${image_name}-${os}"
   [ "$arch" != "amd64" ] && suffix="${suffix}_${arch}"
 
+  tag=${TAG:-${VERSION}${suffix}}
   if $(echo ${tag} | grep -q dirty); then
       tag=dev
   fi
-  tag=${VERSION}${suffix}
 
   if [ ! -d "package/$os/$arch" ]; then
       echo "Directory package/$os/$arch not exist, skip package"
