@@ -1,4 +1,5 @@
 #!/bin/bash
 
-ip addr add 169.254.169.250/32 dev eth0
+METADATA_IP=${RANCHER_METADATA_ADDRESS:-169.254.169.250}
+ip addr add ${METADATA_IP}/32 dev eth0
 exec "$@"
