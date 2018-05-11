@@ -17,13 +17,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/codegangsta/cli"
 	"github.com/golang/gddo/httputil"
 	"github.com/gorilla/mux"
+	"github.com/leodotcloud/log"
+	logserver "github.com/leodotcloud/log/server"
 	"github.com/rancher/rancher-metadata/config"
 	"github.com/rancher/rancher-metadata/server"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -55,6 +56,7 @@ type ServerConfig struct {
 }
 
 func main() {
+	logserver.StartServerWithDefaults()
 	app := getCliApp()
 	app.Action = appMain
 	app.Run(os.Args)
@@ -113,23 +115,23 @@ func getCliApp() *cli.App {
 
 func appMain(ctx *cli.Context) error {
 	if ctx.GlobalBool("debug") {
-		logrus.SetLevel(logrus.DebugLevel)
+		log.SetLevelString("debug")
 	}
 
 	logFile := ctx.GlobalString("log")
 	if logFile != "" {
 		if output, err := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-			logrus.Fatalf("Failed to log to file %s: %v", logFile, err)
+			log.Fatalf("Failed to log to file %s: %v", logFile, err)
 		} else {
-			logrus.SetOutput(output)
+			log.SetOutput(output)
 		}
 	}
 
 	pidFile := ctx.GlobalString("pid-file")
 	if pidFile != "" {
-		logrus.Infof("Writing pid %d to %s", os.Getpid(), pidFile)
+		log.Infof("Writing pid %d to %s", os.Getpid(), pidFile)
 		if err := ioutil.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
-			logrus.Fatalf("Failed to write pid file %s: %v", pidFile, err)
+			log.Fatalf("Failed to write pid file %s: %v", pidFile, err)
 		}
 	}
 
@@ -157,7 +159,7 @@ func (sc *ServerConfig) StartServer() error {
 		return err
 	}
 	go func() {
-		logrus.Info(http.ListenAndServe(":6060", nil))
+		log.Info(http.ListenAndServe(":6060", nil))
 	}()
 	return nil
 }
@@ -183,7 +185,7 @@ func (sc *ServerConfig) watchSignals() {
 
 	go func() {
 		for _ = range c {
-			logrus.Info("Received HUP signal")
+			log.Info("Received HUP signal")
 			sc.reloadChan <- nil
 		}
 	}()
@@ -203,7 +205,7 @@ func (sc *ServerConfig) watchHttp() {
 	sc.reloadRouter.HandleFunc("/favicon.ico", http.NotFound)
 	sc.reloadRouter.HandleFunc("/v1/reload", sc.httpReload).Methods("POST")
 
-	logrus.Info("Listening for Reload on ", sc.listenReload)
+	log.Info("Listening for Reload on ", sc.listenReload)
 	go http.ListenAndServe(sc.listenReload, sc.reloadRouter)
 }
 
@@ -229,12 +231,12 @@ func (sc *ServerConfig) RunServer() {
 		Methods("GET", "HEAD").
 		Name("Metadata")
 
-	logrus.Info("Listening on ", sc.listen)
-	logrus.Fatal(http.ListenAndServe(sc.listen, sc.router))
+	log.Info("Listening on ", sc.listen)
+	log.Fatal(http.ListenAndServe(sc.listen, sc.router))
 }
 
 func (sc *ServerConfig) httpReload(w http.ResponseWriter, req *http.Request) {
-	logrus.Debugf("Received HTTP reload request")
+	log.Debugf("Received HTTP reload request")
 	respChan := make(chan error)
 	sc.reloadChan <- respChan
 	err := <-respChan
@@ -269,7 +271,7 @@ func contentType(req *http.Request) int {
 func (sc *ServerConfig) root(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	logrus.WithFields(logrus.Fields{"client": sc.requestIp(req), "version": "root"}).Debugf("OK: %s", "/")
+	log.Debugf("OK: %s client=%v version=%v", "/", sc.requestIp(req), "root")
 
 	answers := sc.metadataController.GetVersions()
 
@@ -279,7 +281,7 @@ func (sc *ServerConfig) root(w http.ResponseWriter, req *http.Request) {
 		if err == nil {
 			m[k] = (*url).String()
 		} else {
-			logrus.Warn("Error: ", err.Error())
+			log.Warn("Error: ", err.Error())
 		}
 	}
 
@@ -290,7 +292,7 @@ func (sc *ServerConfig) root(w http.ResponseWriter, req *http.Request) {
 		if err == nil {
 			m["latest"] = (*url).String()
 		} else {
-			logrus.Warn("Error: ", err.Error())
+			log.Warn("Error: ", err.Error())
 		}
 	}
 
@@ -320,7 +322,7 @@ func (sc *ServerConfig) metadata(w http.ResponseWriter, req *http.Request) {
 				}
 			}
 
-			logrus.Debugf("Picked %s for latest version because none provided", version)
+			log.Debugf("Picked %s for latest version because none provided", version)
 		} else {
 			respondError(w, req, "Invalid version", http.StatusNotFound)
 			return
@@ -341,19 +343,14 @@ func (sc *ServerConfig) metadata(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"version":  version,
-		"client":   clientIp,
-		"wait":     wait,
-		"oldValue": oldValue,
-		"maxWait":  maxWait}).Debugf("Searching for: %s", displayKey)
+	log.Debugf("Searching for: %s version=%v client=%v wait=%v oldValue=%v maxWait=%v", displayKey, version, clientIp, wait, oldValue, maxWait)
 	val, ok := sc.metadataController.LookupAnswer(wait, oldValue, version, clientIp, pathSegments, time.Duration(maxWait)*time.Second)
 
 	if ok {
-		logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Debugf("OK: %s", displayKey)
+		log.Debugf("OK: %s version=%v client=%v", displayKey, version, clientIp)
 		respondSuccess(w, req, val)
 	} else {
-		logrus.WithFields(logrus.Fields{"version": version, "client": clientIp}).Infof("Error: %s", displayKey)
+		log.Infof("Error: %s version=%v client=%v", displayKey, version, clientIp)
 		respondError(w, req, "Not found", http.StatusNotFound)
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	"github.com/rancher/rancher-metadata/config"
 	uuid "github.com/satori/go.uuid"
 )
@@ -115,7 +115,7 @@ func (mc *MetadataController) RegisterMetaDataServer(url string, accessKey strin
 	if !create {
 		return nil
 	}
-	logrus.Infof("Registering metadata server [%s] with url [%s]", accessKey, url)
+	log.Infof("Registering metadata server [%s] with url [%s]", accessKey, url)
 
 	m := NewMetaDataServer(url,
 		accessKey, secretKey, local, mc.answersFileNamePrefix, mc.reloadInterval, mc.reloadVersions)
@@ -126,7 +126,7 @@ func (mc *MetadataController) RegisterMetaDataServer(url string, accessKey strin
 		}
 	}
 	mc.metadataServers[accessKey] = m
-	logrus.Infof("Registered metadata server for [%s] with url [%s]", accessKey, url)
+	log.Infof("Registered metadata server for [%s] with url [%s]", accessKey, url)
 	return nil
 }
 
@@ -134,13 +134,13 @@ func (mc *MetadataController) UnregisterMetaDataServer(UUID string) {
 	if _, ok := mc.metadataServers[UUID]; !ok {
 		return
 	}
-	logrus.Infof("Deregestring metadata server [%s]", UUID)
+	log.Infof("Deregestring metadata server [%s]", UUID)
 
 	if mc.subscribe {
 		mc.metadataServers[UUID].Stop()
 	}
 	delete(mc.metadataServers, UUID)
-	logrus.Infof("Deregistered metadata server [%s]", UUID)
+	log.Infof("Deregistered metadata server [%s]", UUID)
 }
 
 func (mc *MetadataController) getExternalCredentials() []config.Credential {
@@ -187,7 +187,7 @@ func (mc *MetadataController) reloadVersions() {
 	for _, cred := range toAdd {
 		err := mc.RegisterMetaDataServer(cred.URL, cred.PublicValue, cred.SecretValue, false, true)
 		if err != nil {
-			logrus.Error(err)
+			log.Error(err)
 		}
 	}
 

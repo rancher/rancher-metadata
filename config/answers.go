@@ -1,10 +1,11 @@
 package config
 
 import (
-	log "github.com/Sirupsen/logrus"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/leodotcloud/log"
 )
 
 func (answers *Versions) Versions() []string {

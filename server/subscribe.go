@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/juju/ratelimit"
+	"github.com/leodotcloud/log"
 	"github.com/mitchellh/mapstructure"
 	revents "github.com/rancher/event-subscriber/events"
 	"github.com/rancher/go-rancher/v2"
@@ -31,7 +31,6 @@ type Subscriber struct {
 	generator            *config.Generator
 	requestedVersion     string
 	requestedVersionLock sync.Mutex
-	ctx                  *logrus.Entry
 	reloadInterval       int64
 	limiter              *ratelimit.Bucket
 	stopCh               chan struct{}
@@ -55,14 +54,13 @@ func NewSubscriber(url string, accessKey string, secretKey string, generator *co
 		reload:         reload,
 		client:         &http.Client{},
 		generator:      generator,
-		ctx:            logrus.WithFields(logrus.Fields{"url": formatUrl(url), "access_key": accessKey}),
 		reloadInterval: reloadInterval,
 		limiter:        ratelimit.NewBucketWithQuantum(time.Duration(reloadInterval)*time.Millisecond, 1.0, 1),
 		stopCh:         make(chan struct{}),
 	}
 	s.kicker = kicker.New(func() {
 		if err := s.downloadAndReload(); err != nil {
-			s.ctx.Errorf("Failed to download and reload metadata: %v", err)
+			log.Errorf("Failed to download and reload metadata: %v url=%v access_key=%v", err, s.url, s.accessKey)
 		}
 	})
 	return s
@@ -101,7 +99,7 @@ func (s *Subscriber) Subscribe() error {
 		for {
 			s.kicker.Kick()
 			if err := s.router.RunWithWorkerPool(sp); err != nil {
-				s.ctx.Errorf("Exiting subscriber: %v", err)
+				log.Errorf("Exiting subscriber: %v url=%v access_key=%v", err, s.url, s.accessKey)
 			}
 			select {
 			case <-s.stopCh:
@@ -145,7 +143,7 @@ func (s *Subscriber) configUpdate(event *revents.Event, c *client.RancherClient)
 	i := 0
 	for _, item := range update.Items {
 		if found = item.Name == "metadata-answers"; found {
-			s.ctx.Infof("Update requested for version: %d", item.RequestedVersion)
+			log.Infof("Update requested for version: %d url=%v access_key=%v", item.RequestedVersion, s.url, s.accessKey)
 			s.SetRequestedVersion(strconv.Itoa(item.RequestedVersion))
 			i = s.kicker.Kick()
 			break
@@ -165,7 +163,7 @@ func (s *Subscriber) configUpdate(event *revents.Event, c *client.RancherClient)
 
 func (s *Subscriber) downloadAndReload() error {
 	s.limiter.WaitMaxDuration(1, time.Duration(s.reloadInterval)*time.Millisecond)
-	logrus.Infof("Downloading metadata")
+	log.Infof("Downloading metadata")
 	url := s.url + "/configcontent/metadata-answers?client=v2&requestedVersion=" + s.GetRequestedVersion()
 	// 1. Download meta
 	req, err := http.NewRequest("GET", url, nil)
@@ -179,7 +177,7 @@ func (s *Subscriber) downloadAndReload() error {
 		return err
 	}
 	defer resp.Body.Close()
-	logrus.Infof("Downloaded in %s", time.Since(start))
+	log.Infof("Downloaded in %s", time.Since(start))
 
 	if resp.StatusCode != 200 {
 		content, _ := ioutil.ReadAll(resp.Body)
@@ -187,27 +185,27 @@ func (s *Subscriber) downloadAndReload() error {
 	}
 
 	// 2. Decode the delta
-	logrus.Infof("Generating and reloading answers")
+	log.Infof("Generating and reloading answers")
 	delta, version, err := s.generator.GenerateDelta(resp.Body)
 	if err != nil {
-		logrus.Errorf("Failed to decode delta")
+		log.Errorf("Failed to decode delta")
 		return err
 	}
 
-	logrus.Infof("Generating answers")
+	log.Infof("Generating answers")
 	// 3. Geneate answers
 	versions, creds, err := s.generator.GenerateAnswers(delta)
 	if err != nil {
-		logrus.Errorf("Failed to generate answers")
+		log.Errorf("Failed to generate answers")
 		return err
 	}
 
 	// 4. Reload
 	s.reload(versions, creds, version)
-	logrus.Infof("Generated and reloaded answers")
+	log.Infof("Generated and reloaded answers")
 
 	// 5. Generate a reply
-	logrus.Infof("Applied %s", url+"?version="+version)
+	log.Infof("Applied %s", url+"?version="+version)
 	req, err = http.NewRequest("PUT", url+"?client=v2&version="+version, nil)
 	if err != nil {
 		return err
@@ -222,7 +220,7 @@ func (s *Subscriber) downloadAndReload() error {
 		resp.Body.Close()
 	}
 
-	logrus.Infof("Download and reload in: %v", time.Since(start))
+	log.Infof("Download and reload in: %v", time.Since(start))
 
 	return nil
 }

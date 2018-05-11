@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	"github.com/ugorji/go/codec"
 )
 
@@ -548,9 +548,9 @@ func (g *Generator) SaveToFile(t time.Time) {
 	if g.savedVersion != g.delta.Version && len(g.delta.Data) > 0 {
 		err := g.saveDeltaToFile()
 		if err != nil {
-			logrus.Errorf("Failed to save delta to file: [%v]", err)
+			log.Errorf("Failed to save delta to file: [%v]", err)
 		} else {
-			logrus.Debugf("Saved delta to file at [%v]", t)
+			log.Debugf("Saved delta to file at [%v]", t)
 			g.savedVersion = currentVersion
 		}
 	}
@@ -582,7 +582,7 @@ func (g *Generator) readVersionsFromFile() (Versions, []Credential, error) {
 	f, err := os.Open(g.answersFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			logrus.Warn("Failed to find: ", g.answersFilePath)
+			log.Warn("Failed to find: ", g.answersFilePath)
 			return v, nil, nil
 		}
 		return nil, nil, err
@@ -605,7 +605,7 @@ func (g *Generator) readVersionsFromFile() (Versions, []Credential, error) {
 }
 
 func (g *Generator) LoadVersionsFromFile(ignoreIfMissing bool) (Versions, []Credential, error) {
-	logrus.Infof("Loading answers from file %s", g.answersFilePath)
+	log.Infof("Loading answers from file %s", g.answersFilePath)
 	if _, err := os.Stat(g.answersFilePath); err == nil {
 		versions, creds, err := g.readVersionsFromFile()
 		if err != nil {
