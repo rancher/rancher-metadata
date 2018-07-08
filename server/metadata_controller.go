@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/leodotcloud/log"
+	"github.com/rancher/log"
 	"github.com/rancher/rancher-metadata/config"
 	uuid "github.com/satori/go.uuid"
 )

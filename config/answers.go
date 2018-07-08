@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/leodotcloud/log"
+	"github.com/rancher/log"
 )
 
 func (answers *Versions) Versions() []string {
